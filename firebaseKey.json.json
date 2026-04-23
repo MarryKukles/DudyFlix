@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "dudyflix",
+  "private_key_id": "48427b3856b25dfd59a7353af8b2659e23865308",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDXCZsIl8yrei38\nzMyqAhKdOgr9tQlecpAhQo9Asx+wr77Fv/1Khggvk+85rkbQU2LU3iOIdj8yrEqu\nmiuYBmfNxSUNQXUaPxta8xDLjrBK+itCAG/ma5JX4kiX3a/Fk8ow7Az9kluvPPM0\niofje3rtI99Ogtec2TcsYR15kuKgfp3btUovW8oNxvIeUqspZf+lQdTwocKjxoT4\nnIdM8QmZr7+HAef4IPwuM1c5eW01ChP08nmgFq94pGVkqfUmZtxNoHtIVpi3Q5A6\ny+hkExMhEmZiZSRqGKaSluKAuIk1uJDIVZk6v9MIq7Wf02g+SUutvihETI9M9NQE\nSbTbwuZnAgMBAAECggEABZlIF72EDwQ7sEpQxdhkowKriJbZwJjGVzyuvXuBxrg8\nr6oOWTi2JoROhTecEQ6AEz9uuL3YwA6rqcd1J8cllWjy9wO48yRTfQG5HTkA2WLm\nv22C0a1ZU7/I2L4P4TALjUyIELi/zwc3jyr6228P8J6ve2bStaW+LFdMTNRd4YR+\nM+XtLUHWfLUJnj8X1rz20F9Xt7NZmRhJWsJSQo93Csn9rwFUmWYA0qMhHt4yG08o\nKTw8meCiFFQwJdCWa5XfIyKXrs8naixz5GyOksyID7pwuuo0okV/wHhvV3ec7q53\n/FmSa8WcnFr3RSpec0fY//DKBqSc1CSBWsiuSmgFqQKBgQDzRjBsSWUYAuOygL2o\nnzOGdh+fW5nTN/YDRLshPHeE+V2kkfriuLFqbij9dvu4I0dkInlh+lUYSdPVJf1q\nDgV/sfbF3QsBiDUFs4Ng/zKO/scgWPlRyExp9u4OiFPTCNt09CQyRYlwpN9jP9PH\n54V7b/rTv4rRysnGLiykYKc79QKBgQDiSUjk0nUolXxt+2TJp26zy4pqiTfzJ7fv\nN5rVAPaAiY+ySYq0n2oI+jV+0T8ZUC7jLGGDJr8L6U+d5aV06jo+5rfWtyJy7XbA\naE9UoXkd7M7uN2PJ9XG3L8KpRtDF1YlXniYVlyOfjoUdMeTHWV7m09LwLyTwWukR\nCysn7CIbawKBgHO6u0R4cfBHR5zeY9s4ySE5Rnff8sCpiY4qfz8jbdRDcMnebFS4\n+iWgfD2AAeWqWscHI2l51kt0q6JlrTVrsC/8MGIWcqrq6hZpPKHDJYEjMQVxbkH6\noGd0gfFF52KofwYXMrT7oZOFy4OClLQvrq93KQLcxyRgbTarNq+ID2aVAoGAdrQw\n6/BHC0oXou4seeg+F00fyDFBS2m7gF6v9yrxJI6E9ebEP2ocyqbOpz8HFbVNU1h1\nssIBmDME0/Si7gjtExAewiEBjj5pfBd7/g5SpdMS3j3qOAhsZcdFG12NqSoSSQcq\nPUsyocG2rJD+zWBhez8FOX/RpdBa0NkGA4RIhA8CgYEA5ZP2ZoHwNhk1OuMTWuCU\nZRT+dXEyKiZo4boaGif/f6xK1ZXdGXBmnBt3rDvP2pOi0LmGt07glDaaI3EzLVVV\nhodFeR+8zSHVtlL/loOkOhyDusnC+KJPmjm+eSAggeE4JqpJ6+W3TUE8J3SRdVud\nSsmtd532KDbpzjLQLGODZaU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@dudyflix.iam.gserviceaccount.com",
+  "client_id": "105080056863572319972",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40dudyflix.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DudyFlix</title>
+
+  <!-- Favicon (opcional) -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary:#e50970; --secondary:#221F1F; --accent:#b81d65; }
+    body{ background:var(--secondary); color:#fff; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    .video-card:hover{ transform:scale(1.05); transition:transform .3s; z-index:10; }
+    .modal{ display:none; position:fixed; inset:0; width:100vw; height:100vh; background:rgba(0,0,0,.9); z-index:100; justify-content:center; align-items:center; }
+    .modal-content{ background:var(--secondary); border-radius:8px; width:90%; max-width:900px; max-height:90vh; overflow-y:auto; padding:20px; }
+    .video-player-container{ width:100%; height:100%; position:relative; }
+    #videoPlayer{ width:100%; height:100%; background:#000; }
+    .video-controls{ position:absolute; left:0; right:0; bottom:10px; background:linear-gradient(to top, rgba(0,0,0,.7), transparent); padding:15px; display:flex; flex-direction:column; opacity:0; transition:opacity .3s; }
+    .video-player-container:hover .video-controls{ opacity:1; }
+    .progress-container{ width:100%; height:5px; background:rgba(255,255,255,.3); margin-bottom:10px; cursor:pointer; user-select:none; }
+    .progress-bar{ height:100%; background:var(--primary); width:0%; }
+    .controls-row{ display:flex; justify-content:space-between; align-items:center; }
+    .control-btn{ background:none; border:none; color:#fff; cursor:pointer; margin:0 5px; font-size:16px; }
+    .time-display{ margin:0 10px; font-size:14px; }
+    .volume-container{ display:flex; align-items:center; width:100px; }
+    .episode-item{ padding:10px; margin-bottom:10px; background:rgba(255,255,255,.05); border-radius:4px; cursor:pointer; transition:background .2s; }
+    .episode-item:hover{ background:var(--primary); }
+    .season-selector{ background:rgba(0,0,0,.2); padding:8px; border-radius:4px; margin-bottom:15px; }
+    .category-badge{ display:inline-block; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:5px; }
+    .delete-btn{ position:absolute; top:10px; right:10px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:25px; height:25px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .3s; }
+    .video-card:hover .delete-btn{ opacity:1; }
+    .hint{ font-size:12px; color:#aaa; }
+    input[type="text"], input[type="url"], input[type="number"]{ background:#1f2937; border:1px solid #374151; border-radius:6px; padding:8px 12px; width:100%; outline:none; }
+    input:focus{ border-color:#b81d65; box-shadow:0 0 0 2px rgba(184,29,101,.25); }
+    label{ font-size:14px; color:#e5e7eb; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 bg-gradient-to-b from-black to-transparent z-50 py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center">
+      <a href="#" id="homeLink" class="text-2xl font-bold text-[var(--primary)] mr-10">Dudy<span class="text-white">Flix</span></a>
+      <nav class="hidden md:flex space-x-6">
+        <a href="#" class="category-filter hover:text-[var(--primary)]" data-category="all">Todos</a>
+        <a href="#" class="category-filter hover:text-[var(--primary)]" data-category="filmes">Filmes</a>
+        <a href="#" class="category-filter hover:text-[var(--primary)]" data-category="series">Séries</a>
+      </nav>
+    </div>
+    <div class="flex items-center space-x-4">
+      <button id="uploadBtn" class="bg-[var(--primary)] hover:bg-[var(--accent)] px-4 py-2 rounded text-sm font-semibold">+ Upload</button>
+    </div>
+  </header>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Adicionar Conteúdo</h2>
+        <button id="closeModal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+
+      <div class="flex border-b border-gray-700 mb-6">
+        <button id="videoTypeSingle" class="px-4 py-2 font-medium border-b-2 border-[var(--primary)]">Vídeo Único</button>
+        <button id="videoTypeSeries" class="px-4 py-2 font-medium text-gray-400">Série</button>
+      </div>
+
+      <!-- Vídeo Único -->
+      <div id="singleVideoForm">
+        <div class="mb-4">
+          <label class="block mb-2">Título do Vídeo</label>
+          <input id="videoTitle" type="text" placeholder="Digite o título"/>
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-2">Categoria</label>
+          <select id="videoCategory" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]">
+            <option value="filmes">Filme</option>
+            <option value="series">Série</option>
+            <option value="outros">Outros</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-2">URL do Vídeo (MP4/HLS/Embed)</label>
+          <input id="videoUrlInput" type="url" placeholder="Ex.: https://archive.org/download/meu-video/meu-video.mp4"/>
+          <p class="hint mt-1">Cole o link direto do vídeo (ex.: Internet Archive). Também aceita embed do YouTube/Vimeo.</p>
+        </div>
+
+        <div class="flex justify-end">
+          <button id="uploadVideoBtn" class="bg-[var(--primary)] hover:bg-[var(--accent)] px-6 py-2 rounded font-medium">Salvar</button>
+        </div>
+      </div>
+
+      <!-- Série -->
+      <div id="seriesForm" class="hidden">
+        <div class="mb-4">
+          <label class="block mb-2">Ação</label>
+          <select id="seriesAction" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2">
+            <option value="new">Criar nova série</option>
+            <option value="add">Adicionar episódios a série existente</option>
+          </select>
+        </div>
+
+        <div id="existingSeriesContainer" class="mb-4 hidden">
+          <label class="block mb-2">Escolha a Série Existente</label>
+          <select id="existingSeriesSelect" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2"></select>
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-2">Título da Série</label>
+          <input id="seriesTitle" type="text" placeholder="Digite o título da série"/>
+          <p class="hint mt-1">Para “Adicionar episódios”, o título é opcional.</p>
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-2">Temporada</label>
+          <input id="seasonNumber" type="number" min="1" value="1"/>
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-2">URL da Capa da Série (opcional)</label>
+          <input id="seriesThumbnailUrlInput" type="url" placeholder="Ex.: https://.../capa.jpg"/>
+        </div>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-medium">Episódios</h3>
+            <button id="addEpisodeBtn" class="text-[var(--primary)] hover:text-[var(--accent)] text-sm flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Adicionar Episódio
+            </button>
+          </div>
+          <div id="episodesContainer"></div>
+        </div>
+
+        <div class="flex justify-end">
+          <button id="uploadSeriesBtn" class="bg-[var(--primary)] hover:bg-[var(--accent)] px-6 py-2 rounded font-medium">Salvar Série</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Episódios Modal -->
+  <div id="episodesModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold" id="seriesModalTitle">Selecione um Episódio</h2>
+        <button id="closeEpisodesModal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+      <div class="season-selector">
+        <label class="mr-2">Temporada:</label>
+        <select id="seasonSelect" class="bg-gray-800 border border-gray-700 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"></select>
+      </div>
+      <div id="episodeListContainer" class="episode-list mt-4"></div>
+    </div>
+  </div>
+
+  <!-- Player Modal -->
+  <div id="videoPlayerModal" class="modal">
+    <div class="video-player-container">
+      <video id="videoPlayer" controls></video>
+      <div class="video-controls">
+        <div class="progress-container">
+          <div id="playerProgress" class="progress-bar"></div>
+        </div>
+        <div class="controls-row">
+          <div class="left-controls">
+            <button id="playPauseBtn" class="control-btn">
+              <span id="playIcon">▶</span>
+              <span id="pauseIcon" style="display:none;">⏸</span>
+            </button>
+            <span id="currentTime" class="time-display">0:00</span>
+            <span class="mx-1">/</span>
+            <span id="durationTime" class="time-display">0:00</span>
+          </div>
+          <div class="right-controls">
+            <div class="volume-container">
+              <input id="volumeSlider" type="range" min="0" max="1" step="0.1" value="1" class="mr-2"/>
+              <button id="muteBtn" class="control-btn">
+                <span id="volumeIcon">🔊</span>
+                <span id="muteIcon" style="display:none;">🔇</span>
+              </button>
+            </div>
+            <button id="fullscreenBtn" class="control-btn">⛶</button>
+            <button id="closePlayerBtn" class="control-btn">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="pt-20 pb-10 px-6">
+    <h1 id="contentTitle" class="text-2xl font-bold mb-6">Meus Vídeos</h1>
+    <div id="videosContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+  </main>
+
+  <script>
+    // ===========================
+    // CONFIG
+    // ===========================
+    const BACKEND_URL = 'https://dudyflix.onrender.com'; // <- troque pela sua URL no Render
+
+    // ===========================
+    // STATE
+    // ===========================
+    let videos = [];
+    let series = [];
+    let currentCategory = 'all';
+    let currentSeries = null;
+
+    // ===========================
+    // SELECTORS
+    // ===========================
+    const homeLink = document.getElementById('homeLink');
+    const categoryFilters = document.querySelectorAll('.category-filter');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadModal = document.getElementById('uploadModal');
+    const closeModal = document.getElementById('closeModal');
+
+    // single
+    const videoTypeSingle = document.getElementById('videoTypeSingle');
+    const videoTypeSeries = document.getElementById('videoTypeSeries');
+    const singleVideoForm = document.getElementById('singleVideoForm');
+    const videoTitle = document.getElementById('videoTitle');
+    const videoCategory = document.getElementById('videoCategory');
+    const videoUrlInput = document.getElementById('videoUrlInput');
+    const thumbnailUrlInput = document.getElementById('thumbnailUrlInput');
+    const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+
+    // series (form)
+    const seriesForm = document.getElementById('seriesForm');
+    const seriesTitle = document.getElementById('seriesTitle');
+    const seasonNumber = document.getElementById('seasonNumber');
+    const seriesThumbnailUrlInput = document.getElementById('seriesThumbnailUrlInput');
+    const episodesContainer = document.getElementById('episodesContainer');
+    const addEpisodeBtn = document.getElementById('addEpisodeBtn');
+    const uploadSeriesBtn = document.getElementById('uploadSeriesBtn');
+
+    // series action
+    const seriesAction = document.getElementById("seriesAction");
+    const existingSeriesContainer = document.getElementById("existingSeriesContainer");
+    const existingSeriesSelect = document.getElementById("existingSeriesSelect");
+
+    // episodes modal
+    const episodesModal = document.getElementById('episodesModal');
+    const closeEpisodesModal = document.getElementById('closeEpisodesModal');
+    const seriesModalTitle = document.getElementById('seriesModalTitle');
+    const seasonSelect = document.getElementById('seasonSelect');
+    const episodeListContainer = document.getElementById('episodeListContainer');
+
+    // player
+    const videoPlayerModal = document.getElementById('videoPlayerModal');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const muteBtn = document.getElementById('muteBtn');
+    const volumeIcon = document.getElementById('volumeIcon');
+    const muteIcon = document.getElementById('muteIcon');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const playerProgress = document.getElementById('playerProgress');
+    const currentTimeDisplay = document.getElementById('currentTime');
+    const durationTimeDisplay = document.getElementById('durationTime');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const closePlayerBtn = document.getElementById('closePlayerBtn');
+    const progressContainer = document.querySelector('.progress-container');
+
+    const contentTitle = document.getElementById('contentTitle');
+    const videosContainer = document.getElementById('videosContainer');
+
+    // ===========================
+    // INIT
+    // ===========================
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAllContent();
+
+      homeLink.addEventListener('click', (e) => { e.preventDefault(); currentCategory = 'all'; renderContent(); });
+      categoryFilters.forEach(f => f.addEventListener('click', (e) => { e.preventDefault(); currentCategory = f.dataset.category; renderContent(); }));
+
+      uploadBtn.addEventListener('click', () => uploadModal.style.display = 'flex');
+      closeModal.addEventListener('click', () => { uploadModal.style.display = 'none'; resetUploadForm(); });
+
+      // Tabs
+      videoTypeSingle.addEventListener('click', () => {
+        videoTypeSingle.classList.add('border-[var(--primary)]','text-white');
+        videoTypeSeries.classList.remove('border-[var(--primary)]','text-white');
+        videoTypeSeries.classList.add('text-gray-400');
+        singleVideoForm.classList.remove('hidden');
+        seriesForm.classList.add('hidden');
+      });
+      videoTypeSeries.addEventListener('click', () => {
+        videoTypeSeries.classList.add('border-[var(--primary)]','text-white');
+        videoTypeSingle.classList.remove('border-[var(--primary)]','text-white');
+        videoTypeSingle.classList.add('text-gray-400');
+        singleVideoForm.classList.add('hidden');
+        seriesForm.classList.remove('hidden');
+      });
+
+      // Series action (preencher dropdown quando escolher "add")
+      seriesAction.addEventListener("change", () => {
+        if (seriesAction.value === "add") {
+          existingSeriesContainer.classList.remove("hidden");
+          existingSeriesSelect.innerHTML = "";
+          series.forEach((s) => {
+            const opt = document.createElement("option");
+            opt.value = s._id || s.id;
+            opt.textContent = s.title;
+            existingSeriesSelect.appendChild(opt);
+          });
+        } else {
+          existingSeriesContainer.classList.add("hidden");
+        }
+      });
+
+      // Episodes form
+      addEpisodeBtn.addEventListener('click', addEpisodeFields);
+
+      // Save buttons
+      uploadVideoBtn.addEventListener('click', uploadSingleVideo);
+      uploadSeriesBtn.addEventListener('click', uploadSeries);
+
+      // episodes modal
+      closeEpisodesModal.addEventListener('click', () => episodesModal.style.display = 'none');
+
+      // Player controls
+      playPauseBtn.addEventListener('click', togglePlayPause);
+      muteBtn.addEventListener('click', toggleMute);
+      volumeSlider.addEventListener('input', updateVolume);
+      fullscreenBtn.addEventListener('click', toggleFullscreen);
+      closePlayerBtn.addEventListener('click', closeVideoPlayer);
+
+      // Seek (click + drag + touch)
+      let isSeeking = false;
+      function seekAt(clientX) {
+        const rect = progressContainer.getBoundingClientRect();
+        const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+        if (!isNaN(videoPlayer.duration) && isFinite(videoPlayer.duration)) {
+          videoPlayer.currentTime = ratio * videoPlayer.duration;
+          updateVideoProgress();
+        }
+      }
+      progressContainer.addEventListener('click', (e) => seekAt(e.clientX));
+      progressContainer.addEventListener('mousedown', (e) => { isSeeking = true; seekAt(e.clientX); });
+      document.addEventListener('mousemove', (e) => { if (isSeeking) seekAt(e.clientX); });
+      document.addEventListener('mouseup', () => { isSeeking = false; });
+      progressContainer.addEventListener('touchstart', (e) => { isSeeking = true; seekAt(e.touches[0].clientX); }, { passive: true });
+      progressContainer.addEventListener('touchmove', (e) => { if (isSeeking) seekAt(e.touches[0].clientX); }, { passive: true });
+      progressContainer.addEventListener('touchend', () => { isSeeking = false; });
+
+      videoPlayer.addEventListener('timeupdate', updateVideoProgress);
+      videoPlayer.addEventListener('loadedmetadata', () => { durationTimeDisplay.textContent = formatTime(videoPlayer.duration); });
+      document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fullscreenBtn.innerHTML = '⛶'; });
+
+      // estado inicial do formulário de série
+      resetUploadForm();
+    });
+
+    // ===========================
+    // DATA LOAD
+    // ===========================
+    async function loadAllContent() {
+      try {
+        const v = await fetch(`${BACKEND_URL}/api/videos`);
+        if (v.ok) videos = await v.json(); else console.error('Erro vídeos:', v.status, await v.text().catch(()=> ''));
+        const s = await fetch(`${BACKEND_URL}/api/series`);
+        if (s.ok) series = await s.json(); else console.error('Erro séries:', s.status, await s.text().catch(()=> ''));
+        renderContent();
+      } catch (err) {
+        console.error('Erro ao buscar conteúdo do backend:', err);
+      }
+    }
+
+    // ===========================
+    // RENDER
+    // ===========================
+    function renderContent() {
+      videosContainer.innerHTML = '';
+      if (currentCategory === 'all' || currentCategory === 'filmes') {
+        videos.forEach(video => {
+          if (currentCategory === 'all' || video.category === 'filmes') {
+            videosContainer.appendChild(createVideoCard(video));
+          }
+        });
+      }
+      if (currentCategory === 'all' || currentCategory === 'series') {
+        series.forEach(serie => videosContainer.appendChild(createSeriesCard(serie)));
+      }
+      if (!videosContainer.children.length) {
+        videosContainer.innerHTML = `
+          <div class="col-span-full text-center py-10">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-500 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <h4 class="text-lg font-medium text-gray-400">Nenhum conteúdo encontrado</h4>
+            <p class="text-gray-500 text-sm mt-2">Adicione conteúdo usando o botão de upload</p>
+          </div>`;
+      }
+      contentTitle.textContent = currentCategory === 'all' ? 'Todos os Vídeos' : (currentCategory === 'filmes' ? 'Filmes' : 'Séries');
+    }
+
+    function createVideoCard(video) {
+      const el = document.createElement('div');
+      el.className = 'video-card relative group';
+      el.innerHTML = `
+        <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
+          <img src="${video.thumbnail}" alt="${video.title}" class="absolute w-full h-full object-cover group-hover:opacity-50 transition-opacity">
+          <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
+          <div class="absolute bottom-2 left-2 right-2">
+            <h4 class="text-sm font-semibold truncate">${video.title}</h4>
+            <div class="flex items-center text-xs text-gray-300 mt-1">
+              <span class="category-badge">${video.category === 'filmes' ? 'Filme' : 'Vídeo'}</span>
+            </div>
+          </div>
+          <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <button class="bg-[var(--primary)] rounded-full p-3 hover:bg-[var(--accent)]">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </button>
+          </div>
+          <button class="delete-btn" data-id="${video._id || video.id}" data-type="video">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>`;
+      el.querySelector('.relative').addEventListener('click', () => playVideo(video.url));
+      el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(video._id || video.id, 'video'); });
+      return el;
+    }
+
+    function createSeriesCard(serie) {
+      const el = document.createElement('div');
+      el.className = 'video-card relative group';
+      el.innerHTML = `
+        <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
+          <img src="${serie.thumbnail}" alt="${serie.title}" class="absolute w-full h-full object-cover group-hover:opacity-50 transition-opacity">
+          <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
+          <div class="absolute bottom-2 left-2 right-2">
+            <h4 class="text-sm font-semibold truncate">${serie.title}</h4>
+            <div class="flex items-center text-xs text-gray-300 mt-1">
+              <span class="category-badge">Série</span>
+              <span class="ml-2">${(serie.seasons || []).reduce((t,s)=> t + (s.episodes?.length || 0), 0)} episódios</span>
+            </div>
+          </div>
+          <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <button class="bg-[var(--primary)] rounded-full p-3 hover:bg-[var(--accent)]">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </button>
+          </div>
+          <button class="delete-btn" data-id="${serie._id || serie.id}" data-type="series">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>`;
+      el.querySelector('.relative').addEventListener('click', () => { currentSeries = serie; showEpisodesModal(serie); });
+      el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(serie._id || serie.id, 'series'); });
+      return el;
+    }
+
+    function showEpisodesModal(serie) {
+      seriesModalTitle.textContent = serie.title;
+      seasonSelect.innerHTML = '';
+      (serie.seasons || []).forEach(season => {
+        const opt = document.createElement('option');
+        opt.value = season.seasonNumber;
+        opt.textContent = `Temporada ${season.seasonNumber}`;
+        seasonSelect.appendChild(opt);
+      });
+      const first = (serie.seasons || [])[0];
+      renderEpisodesList(first ? first.episodes || [] : []);
+      episodesModal.style.display = 'flex';
+      seasonSelect.onchange = () => {
+        const num = parseInt(seasonSelect.value, 10);
+        const s = (serie.seasons || []).find(x => x.seasonNumber === num);
+        renderEpisodesList(s ? s.episodes || [] : []);
+      };
+    }
+
+    function renderEpisodesList(episodes) {
+      episodeListContainer.innerHTML = '';
+      (episodes || []).forEach(ep => {
+        const item = document.createElement('div');
+        item.className = 'episode-item';
+        item.innerHTML = `
+          <div class="flex items-center">
+            <div class="w-16 h-10 bg-gray-800 rounded mr-3 overflow-hidden">
+              <img src="${currentSeries.thumbnail}" class="w-full h-full object-cover" alt="">
+            </div>
+            <div>
+              <h4 class="font-medium text-sm">${ep.title}</h4>
+              <p class="text-xs text-gray-400">Episódio ${ep.episodeNumber}</p>
+            </div>
+          </div>`;
+        item.addEventListener('click', () => { playVideo(ep.url); episodesModal.style.display = 'none'; });
+        episodeListContainer.appendChild(item);
+      });
+    }
+
+    // ===========================
+    // UPLOADS (por URL)
+    // ===========================
+    async function uploadSingleVideo() {
+      const title = videoTitle.value.trim();
+      const category = videoCategory.value;
+      const url = (videoUrlInput.value || '').trim();
+      const thumb = (thumbnailUrlInput.value || '').trim();
+
+      if (!title) return alert('Informe o título.');
+      if (!url) return alert('Cole a URL do vídeo (MP4/HLS/Embed).');
+
+      try {
+        uploadVideoBtn.disabled = true; uploadVideoBtn.textContent = 'Salvando...';
+        const res = await fetch(`${BACKEND_URL}/api/videos/by-url`, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ title, category, url, thumbnail: thumb || 'https://placehold.co/400x225' })
+        });
+        if (res.ok) {
+          alert('Vídeo adicionado!');
+          uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
+        } else {
+          const t = await res.text().catch(()=> ''); console.error('POST /api/videos/by-url', res.status, t);
+          alert(`Erro (HTTP ${res.status}). Veja o console.`);
+        }
+      } catch (e) {
+        console.error(e); alert('Falha de rede ao salvar o vídeo.');
+      } finally {
+        uploadVideoBtn.disabled = false; uploadVideoBtn.textContent = 'Salvar';
+      }
+    }
+
+    async function uploadSeries() {
+      const action = seriesAction.value;
+
+      const title = seriesTitle.value.trim();
+      const season = seasonNumber.value;
+      const seriesThumb = (seriesThumbnailUrlInput.value || '').trim();
+
+      const fields = episodesContainer.querySelectorAll('.episode-field');
+      if (!fields.length) return alert('Adicione pelo menos um episódio.');
+
+      const episodes = [];
+      for (let i = 0; i < fields.length; i++) {
+        const f = fields[i];
+        const epTitle = f.querySelector('.ep-title').value.trim();
+        const epUrl = f.querySelector('.ep-url').value.trim();
+        if (!epTitle || !epUrl) {
+          f.style.borderColor = 'red';
+          return alert('Preencha título e URL do vídeo em todos os episódios.');
+        }
+          episodes.push({
+          episodeNumber: i + 1,
+          title: epTitle,
+          url: epUrl,
+        });
+      }
+
+      try {
+        uploadSeriesBtn.disabled = true; uploadSeriesBtn.textContent = 'Salvando...';
+
+        if (action === 'new') {
+          const res = await fetch(`${BACKEND_URL}/api/series/by-url`, {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              title,
+              seasonNumber: season,
+              seriesThumbnail: seriesThumb || null,
+              episodes,
+            })
+          });
+          if (res.ok) {
+            alert('Série criada!');
+            uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
+          } else {
+            const t = await res.text().catch(()=> ''); console.error('POST /api/series/by-url', res.status, t);
+            alert(`Erro (HTTP ${res.status}). Veja console.`);
+          }
+        } else {
+          const serieId = existingSeriesSelect.value;
+          if (!serieId) return alert('Escolha a série existente.');
+          const res = await fetch(`${BACKEND_URL}/api/series/${serieId}/add-episodes`, {
+            method:'PUT',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ seasonNumber: season, episodes })
+          });
+          if (res.ok) {
+            alert('Episódios adicionados!');
+            uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
+          } else {
+            const t = await res.text().catch(()=> ''); console.error('PUT /api/series/:id/add-episodes', res.status, t);
+            alert(`Erro (HTTP ${res.status}). Veja console.`);
+          }
+        }
+      } catch (e) {
+        console.error(e); alert('Falha de rede.');
+      } finally {
+        uploadSeriesBtn.disabled = false; uploadSeriesBtn.textContent = 'Salvar Série';
+      }
+    }
+
+    // ===========================
+    // EPISODE FIELDS
+    // ===========================
+    function addEpisodeFields() {
+      const num = episodesContainer.children.length + 1;
+      const div = document.createElement('div');
+      div.className = 'episode-field mb-4 p-4 bg-gray-800 rounded-lg';
+      div.style.border = '1px solid #374151';
+      div.innerHTML = `
+  <div class="flex justify-between items-center mb-3">
+    <h4 class="font-medium">Episódio ${num}</h4>
+    <button class="remove-episode text-[var(--primary)] hover:text-[var(--accent)] text-sm">Remover</button>
+  </div>
+
+  <div class="mb-3">
+    <label class="block mb-1">Título</label>
+    <input type="text" class="ep-title" placeholder="Título do episódio">
+  </div>
+
+  <div class="mb-3">
+    <label class="block mb-1">URL do Vídeo (MP4/HLS/Embed)</label>
+    <input type="url" class="ep-url" placeholder="Ex.: https://archive.org/.../episodio1.mp4">
+    <p class="hint mt-1">Cole o link direto do vídeo hospedado.</p>
+  </div>
+`;
+      const removeBtn = div.querySelector('.remove-episode');
+      removeBtn.addEventListener('click', () => { if (episodesContainer.children.length > 1) { div.remove(); updateEpisodeNumbers(); } });
+      episodesContainer.appendChild(div);
+    }
+    function updateEpisodeNumbers(){ [...episodesContainer.querySelectorAll('.episode-field')].forEach((ep,i)=> ep.querySelector('h4').textContent=`Episódio ${i+1}`); }
+
+    // ===========================
+    // PLAYER
+    // ===========================
+    function playVideo(url) {
+      // suporta embeds (YouTube/Vimeo) e link direto (mp4/m3u8)
+      const isYouTube = /youtube\.com\/embed|youtu\.be/.test(url);
+      const isVimeo   = /player\.vimeo\.com\/video/.test(url);
+
+      const oldIframe = document.getElementById('embedFrame');
+      if (oldIframe) oldIframe.remove();
+
+      if (isYouTube || isVimeo) {
+        videoPlayer.pause(); videoPlayer.src = '';
+        const iframe = document.createElement('iframe');
+        iframe.id = 'embedFrame';
+        iframe.src = url;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        iframe.style.width = '100%'; iframe.style.height = '100%'; iframe.style.border = '0';
+        document.querySelector('.video-player-container').prepend(iframe);
+        videoPlayerModal.style.display = 'flex';
+        return;
+      }
+
+      videoPlayer.src = url;
+      videoPlayerModal.style.display = 'flex';
+      videoPlayer.play().catch(e => console.error('Erro ao reproduzir vídeo:', e));
+    }
+    function togglePlayPause() {
+      if (videoPlayer.paused) { videoPlayer.play(); playIcon.style.display='none'; pauseIcon.style.display='inline'; }
+      else { videoPlayer.pause(); playIcon.style.display='inline'; pauseIcon.style.display='none'; }
+    }
+    function toggleMute() {
+      videoPlayer.muted = !videoPlayer.muted;
+      const m = videoPlayer.muted; volumeIcon.style.display = m ? 'none' : 'inline'; muteIcon.style.display = m ? 'inline' : 'none'; volumeSlider.value = m ? 0 : 1;
+    }
+    function updateVolume() {
+      videoPlayer.volume = volumeSlider.value; videoPlayer.muted = (volumeSlider.value === '0');
+      const m = videoPlayer.muted; volumeIcon.style.display = m ? 'none' : 'inline'; muteIcon.style.display = m ? 'inline' : 'none';
+    }
+    function updateVideoProgress() {
+      const pct = (videoPlayer.currentTime / (videoPlayer.duration || 1)) * 100;
+      playerProgress.style.width = `${pct || 0}%`; currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime || 0);
+      durationTimeDisplay.textContent = formatTime(videoPlayer.duration || 0);
+    }
+    function toggleFullscreen() {
+      const c = document.querySelector('.video-player-container');
+      if (!document.fullscreenElement) c.requestFullscreen().then(()=> fullscreenBtn.innerHTML = '❌').catch(err=>console.error('FS error:', err));
+      else { document.exitFullscreen(); fullscreenBtn.innerHTML = '⛶'; }
+    }
+    function closeVideoPlayer() {
+      const oldIframe = document.getElementById('embedFrame');
+      if (oldIframe) oldIframe.remove();
+      videoPlayer.pause(); videoPlayer.src=''; videoPlayerModal.style.display='none';
+    }
+    function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
+
+    // ===========================
+    // DELETE
+    // ===========================
+    async function deleteContent(id, type) {
+      if (!confirm(`Tem certeza que deseja excluir este ${type === 'video' ? 'vídeo' : 'série'}?`)) return;
+      try {
+        const endpoint = type === 'video' ? 'videos' : 'series';
+        const res = await fetch(`${BACKEND_URL}/api/${endpoint}/${id}`, { method:'DELETE' });
+        if (res.ok) { alert(`${type === 'video' ? 'Vídeo' : 'Série'} excluído(a) com sucesso!`); loadAllContent(); }
+        else { const text = await res.text().catch(()=> ''); console.error(`DELETE /api/${endpoint}/${id} falhou:`, res.status, text); alert(`Erro ao excluir (HTTP ${res.status}).`); }
+      } catch (err) {
+        console.error(`Falha de rede ao excluir ${type}:`, err); alert('Erro de conexão ao excluir conteúdo.');
+      }
+    }
+
+    // ===========================
+    // RESET
+    // ===========================
+    function resetUploadForm() {
+      // vídeo único
+      videoTitle.value=''; videoCategory.value='filmes'; videoUrlInput.value=''; thumbnailUrlInput.value='';
+      // série
+      seriesAction.value = 'new';
+      existingSeriesContainer.classList.add('hidden');
+      seriesTitle.value=''; seasonNumber.value='1'; seriesThumbnailUrlInput.value='';
+      episodesContainer.innerHTML=''; addEpisodeFields();
+      // aba padrão
+      videoTypeSingle.click();
+    }
+  </script>
+</body>
+</html>

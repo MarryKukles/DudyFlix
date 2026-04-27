@@ -29,14 +29,18 @@
     .episode-item{ padding:10px; margin-bottom:10px; background:rgba(255,255,255,.05); border-radius:4px; cursor:pointer; transition:background .2s; }
     .episode-item:hover{ background:var(--primary); }
     .season-selector{ background:rgba(0,0,0,.2); padding:8px; border-radius:4px; margin-bottom:15px; }
-    .episode-item.dragging{ opacity:.4; border:2px dashed var(--primary); }
-    .episode-item.drag-over{ border-top:3px solid var(--primary); margin-top:-3px; }
-    .drag-handle{ cursor:grab; padding:0 8px; color:#888; flex-shrink:0; }
+    .episode-item.dragging{ opacity:.4; border:2px dashed var(--primary) !important; }
+    .episode-item.drag-over{ border-top:3px solid var(--primary); }
+    .drag-handle{ cursor:grab; padding:0 8px; color:#888; flex-shrink:0; user-select:none; }
     .drag-handle:active{ cursor:grabbing; }
-    .reorder-bar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-    .save-order-btn{ background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; display:none; }
+    .reorder-hint{ font-size:12px; color:#888; }
+    .save-order-btn{ background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; display:none; margin-left:auto; }
     .save-order-btn:hover{ background:var(--accent); }
     .save-order-btn.visible{ display:inline-block; }
+    .cast-btn{ background:none; border:none; color:#fff; cursor:pointer; margin:0 5px; opacity:.85; transition:opacity .2s; vertical-align:middle; padding:0; }
+    .cast-btn:hover{ opacity:1; }
+    .cast-btn svg{ width:20px; height:20px; fill:currentColor; vertical-align:middle; }
+    #castStatus{ font-size:11px; color:#ccc; margin-left:2px; display:none; }
     .category-badge{ display:inline-block; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:5px; }
     .delete-btn{ position:absolute; top:10px; right:10px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:25px; height:25px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .3s; }
     .video-card:hover .delete-btn{ opacity:1; }
@@ -167,8 +171,8 @@
         <label class="mr-2">Temporada:</label>
         <select id="seasonSelect" class="bg-gray-800 border border-gray-700 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"></select>
       </div>
-      <div class="reorder-bar mt-4">
-        <span id="reorderHint" class="text-xs text-gray-400">Arraste os episódios para reordenar</span>
+      <div class="flex items-center mt-4 mb-2">
+        <span class="reorder-hint">Arraste para reordenar</span>
         <button id="saveOrderBtn" class="save-order-btn">💾 Salvar Ordem</button>
       </div>
       <div id="episodeListContainer" class="episode-list"></div>
@@ -178,7 +182,7 @@
   <!-- Player Modal -->
   <div id="videoPlayerModal" class="modal">
     <div class="video-player-container">
-      <video id="videoPlayer" controls></video>
+      <video id="videoPlayer" playsinline webkit-playsinline x-webkit-airplay="allow" airplay="allow"></video>
       <div class="video-controls">
         <div class="progress-container">
           <div id="playerProgress" class="progress-bar"></div>
@@ -201,6 +205,10 @@
                 <span id="muteIcon" style="display:none;">🔇</span>
               </button>
             </div>
+            <button id="castBtn" class="cast-btn" title="Transmitir para TV / Chromecast / AirPlay">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3C1.9 3 1 3.9 1 5v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+            </button>
+            <span id="castStatus"></span>
             <button id="fullscreenBtn" class="control-btn">⛶</button>
             <button id="closePlayerBtn" class="control-btn">✕</button>
           </div>
@@ -270,6 +278,8 @@
     const episodeListContainer = document.getElementById('episodeListContainer');
     const saveOrderBtn = document.getElementById('saveOrderBtn');
     let reorderDirty = false;
+    const castBtn = document.getElementById('castBtn');
+    const castStatus = document.getElementById('castStatus');
 
     // player
     const videoPlayerModal = document.getElementById('videoPlayerModal');
@@ -351,6 +361,7 @@
       muteBtn.addEventListener('click', toggleMute);
       volumeSlider.addEventListener('input', updateVolume);
       fullscreenBtn.addEventListener('click', toggleFullscreen);
+      castBtn.addEventListener('click', handleCast);
       closePlayerBtn.addEventListener('click', closeVideoPlayer);
 
       // Seek (click + drag + touch)
@@ -482,7 +493,7 @@
             </svg>
           </button>
         </div>`;
-      el.querySelector('.relative').addEventListener('click', () => { currentSeries = serie; showEpisodesModal(serie); });
+      el.querySelector('.relative').addEventListener('click', () => { const fresh = series.find(s => (s._id||s.id)===(serie._id||serie.id)) || serie; currentSeries = fresh; showEpisodesModal(fresh); });
       el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(serie._id || serie.id, 'series'); });
       return el;
     }
@@ -536,18 +547,16 @@
               <p class="text-xs text-gray-400 ep-num-display">Episódio ${ep.episodeNumber}</p>
             </div>
           </div>
-          <button class="delete-episode text-[var(--primary)] hover:text-[var(--accent)] text-sm flex-shrink-0 ml-2">Excluir</button>`;
+          <button class="delete-episode text-[var(--primary)] hover:text-[var(--accent)] text-sm flex-shrink-0 ml-3">Excluir</button>`;
 
-        // drag events
         item.addEventListener('dragstart', (e) => {
           dragSrc = item;
-          item.classList.add('dragging');
           e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => item.classList.add('dragging'), 0);
         });
         item.addEventListener('dragend', () => {
           item.classList.remove('dragging');
           episodeListContainer.querySelectorAll('.episode-item').forEach(i => i.classList.remove('drag-over'));
-          // renumber displayed labels
           let n = 1;
           episodeListContainer.querySelectorAll('.episode-item').forEach(i => {
             i.querySelector('.ep-num-display').textContent = 'Episódio ' + n++;
@@ -563,19 +572,17 @@
             item.classList.add('drag-over');
           }
         });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
         item.addEventListener('drop', (e) => {
           e.preventDefault();
+          item.classList.remove('drag-over');
           if (dragSrc && dragSrc !== item) {
-            const allItems = [...episodeListContainer.querySelectorAll('.episode-item')];
-            const srcIdx = allItems.indexOf(dragSrc);
-            const tgtIdx = allItems.indexOf(item);
-            if (srcIdx < tgtIdx) episodeListContainer.insertBefore(dragSrc, item.nextSibling);
+            const all = [...episodeListContainer.querySelectorAll('.episode-item')];
+            const si = all.indexOf(dragSrc), ti = all.indexOf(item);
+            if (si < ti) episodeListContainer.insertBefore(dragSrc, item.nextSibling);
             else episodeListContainer.insertBefore(dragSrc, item);
           }
-          item.classList.remove('drag-over');
         });
-
-        // click to play (only if not dragging)
         item.addEventListener('click', (e) => {
           if (e.target.closest('.delete-episode') || e.target.closest('.drag-handle')) return;
           playVideo(ep.url);
@@ -592,16 +599,12 @@
     async function saveEpisodeOrder() {
       const seriesId = currentSeries._id || currentSeries.id;
       const seasonNum = parseInt(seasonSelect.value, 10);
-      // collect current order from DOM (original episodeNumber stored in dataset)
-      const items = [...episodeListContainer.querySelectorAll('.episode-item')];
-      // get current season episodes to remap by original number
       const season = (currentSeries.seasons || []).find(s => s.seasonNumber === seasonNum);
       if (!season) return;
       const epMap = {};
       season.episodes.forEach(ep => { epMap[ep.episodeNumber] = ep; });
-      const reordered = items.map((item, idx) => {
-        const origNum = parseInt(item.dataset.epNumber, 10);
-        const ep = epMap[origNum];
+      const reordered = [...episodeListContainer.querySelectorAll('.episode-item')].map((item, idx) => {
+        const ep = epMap[parseInt(item.dataset.epNumber, 10)];
         return { ...ep, episodeNumber: idx + 1 };
       });
       saveOrderBtn.disabled = true;
@@ -618,11 +621,10 @@
           if (updated) { currentSeries = updated; showEpisodesModal(updated, seasonNum); }
           reorderDirty = false;
         } else {
-          const t = await res.text().catch(() => '');
-          alert('Erro ao salvar ordem: ' + res.status + ' ' + t);
+          alert('Erro ao salvar ordem: ' + res.status);
         }
       } catch(err) {
-        console.error(err); alert('Falha de rede ao salvar ordem.');
+        alert('Falha de rede ao salvar ordem.');
       } finally {
         saveOrderBtn.disabled = false;
         saveOrderBtn.textContent = '💾 Salvar Ordem';
@@ -759,7 +761,6 @@
           <label class="block mb-1">URL do Vídeo (MP4/HLS/Embed)</label>
           <input type="url" class="ep-url" placeholder="Ex.: https://archive.org/.../episodio1.mp4">
           <p class="hint mt-1">Cole o link direto do vídeo hospedado.</p>
-        </div>
         </div>`;
       const removeBtn = div.querySelector('.remove-episode');
       removeBtn.addEventListener('click', () => { if (episodesContainer.children.length > 1) { div.remove(); updateEpisodeNumbers(); } });
@@ -822,6 +823,37 @@
       if (oldIframe) oldIframe.remove();
       videoPlayer.pause(); videoPlayer.src=''; videoPlayerModal.style.display='none';
     }
+
+    async function handleCast() {
+      // 1. Remote Playback API — Chromecast (Chrome/Edge)
+      if (videoPlayer.remote) {
+        castStatus.style.display = 'inline';
+        castStatus.textContent = '🔍 Procurando...';
+        try {
+          await videoPlayer.remote.prompt();
+          castStatus.textContent = '✅ Conectado';
+          setTimeout(() => { castStatus.style.display = 'none'; }, 3000);
+        } catch(e) {
+          castStatus.textContent = e.name === 'NotAllowedError' ? '❌ Cancelado' : '❌ Sem dispositivos';
+          setTimeout(() => { castStatus.style.display = 'none'; }, 3000);
+        }
+        return;
+      }
+      // 2. AirPlay — Safari / iOS
+      if (typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
+        videoPlayer.webkitShowPlaybackTargetPicker();
+        return;
+      }
+      // 3. Picture-in-Picture — fallback universal
+      if (document.pictureInPictureEnabled && !videoPlayer.disablePictureInPicture) {
+        try {
+          if (document.pictureInPictureElement) await document.exitPictureInPicture();
+          else await videoPlayer.requestPictureInPicture();
+        } catch(e) { console.error('PiP error:', e); }
+        return;
+      }
+      alert('Transmissão não disponível neste navegador.\nUse Chrome para Chromecast ou Safari para AirPlay.');
+    }
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
 
     // ===========================
@@ -851,7 +883,7 @@
           alert('Episódio excluído com sucesso!');
           await loadAllContent();
           const updatedSeries = series.find((s) => (s._id || s.id) === seriesId);
-          if (updatedSeries) showEpisodesModal(updatedSeries);
+          if (updatedSeries) { currentSeries = updatedSeries; showEpisodesModal(updatedSeries); }
           else episodesModal.style.display = 'none';
         } else {
           const text = await res.text().catch(() => '');

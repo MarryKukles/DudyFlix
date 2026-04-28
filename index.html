@@ -18,29 +18,67 @@
     .modal-content{ background:var(--secondary); border-radius:8px; width:90%; max-width:900px; max-height:90vh; overflow-y:auto; padding:20px; }
     .video-player-container{ width:100%; height:100%; position:relative; }
     #videoPlayer{ width:100%; height:100%; background:#000; }
-    .video-controls{ position:absolute; left:0; right:0; bottom:10px; background:linear-gradient(to top, rgba(0,0,0,.7), transparent); padding:15px; display:flex; flex-direction:column; opacity:0; transition:opacity .3s; }
-    .video-player-container:hover .video-controls{ opacity:1; }
-    .progress-container{ width:100%; height:5px; background:rgba(255,255,255,.3); margin-bottom:10px; cursor:pointer; user-select:none; }
-    .progress-bar{ height:100%; background:var(--primary); width:0%; }
-    .controls-row{ display:flex; justify-content:space-between; align-items:center; }
-    .control-btn{ background:none; border:none; color:#fff; cursor:pointer; margin:0 5px; font-size:16px; }
-    .time-display{ margin:0 10px; font-size:14px; }
-    .volume-container{ display:flex; align-items:center; width:100px; }
+    /* ── Player controls ── */
+    .video-controls{
+      position:absolute; left:0; right:0; bottom:0;
+      background:linear-gradient(to top, rgba(0,0,0,.88) 0%, transparent 100%);
+      padding:10px 14px 12px; display:flex; flex-direction:column;
+      opacity:0; transition:opacity .3s; z-index:10;
+    }
+    .video-player-container:hover .video-controls,
+    .video-player-container.show-controls .video-controls{ opacity:1; }
+    .progress-container{
+      width:100%; height:4px; background:rgba(255,255,255,.25);
+      margin-bottom:10px; cursor:pointer; user-select:none;
+      border-radius:2px; position:relative;
+    }
+    .progress-container:hover{ height:6px; margin-bottom:8px; }
+    .progress-bar{ height:100%; background:var(--primary); width:0%; border-radius:2px; }
+    .controls-row{ display:flex; justify-content:space-between; align-items:center; gap:4px; }
+    .left-controls{ display:flex; align-items:center; gap:4px; flex-shrink:0; }
+    .right-controls{ display:flex; align-items:center; gap:4px; flex-shrink:0; }
+    .control-btn{
+      background:none; border:none; color:#fff; cursor:pointer;
+      font-size:16px; padding:4px 6px; border-radius:4px;
+      transition:background .15s; line-height:1; display:flex; align-items:center;
+    }
+    .control-btn:hover{ background:rgba(255,255,255,.15); }
+    .time-display{ font-size:13px; color:#ddd; white-space:nowrap; padding:0 4px; }
+    /* Volume — contido, sem vazar */
+    .volume-container{
+      display:flex; align-items:center; gap:4px;
+      max-width:110px; overflow:hidden;
+    }
+    #volumeSlider{
+      -webkit-appearance:none; appearance:none;
+      width:70px; height:3px; border-radius:2px;
+      background:rgba(255,255,255,.3); outline:none; cursor:pointer; flex-shrink:0;
+    }
+    #volumeSlider::-webkit-slider-thumb{
+      -webkit-appearance:none; width:12px; height:12px;
+      border-radius:50%; background:var(--primary); cursor:pointer;
+    }
+    #volumeSlider::-moz-range-thumb{
+      width:12px; height:12px; border:none;
+      border-radius:50%; background:var(--primary); cursor:pointer;
+    }
+    /* Fullscreen button states */
+    #fullscreenBtn .fs-enter{ display:inline; }
+    #fullscreenBtn .fs-exit{ display:none; }
+    #fullscreenBtn.is-fullscreen .fs-enter{ display:none; }
+    #fullscreenBtn.is-fullscreen .fs-exit{ display:inline; }
+    /* Cast button */
+    .cast-btn{
+      background:none; border:none; color:#fff; cursor:pointer;
+      padding:4px 6px; border-radius:4px; transition:background .15s;
+      display:flex; align-items:center;
+    }
+    .cast-btn:hover{ background:rgba(255,255,255,.15); }
+    .cast-btn svg{ width:18px; height:18px; fill:currentColor; display:block; }
+    #castStatus{ font-size:11px; color:#ccc; white-space:nowrap; display:none; }
     .episode-item{ padding:10px; margin-bottom:10px; background:rgba(255,255,255,.05); border-radius:4px; cursor:pointer; transition:background .2s; }
     .episode-item:hover{ background:var(--primary); }
     .season-selector{ background:rgba(0,0,0,.2); padding:8px; border-radius:4px; margin-bottom:15px; }
-    .episode-item.dragging{ opacity:.4; border:2px dashed var(--primary) !important; }
-    .episode-item.drag-over{ border-top:3px solid var(--primary); }
-    .drag-handle{ cursor:grab; padding:0 8px; color:#888; flex-shrink:0; user-select:none; }
-    .drag-handle:active{ cursor:grabbing; }
-    .reorder-hint{ font-size:12px; color:#888; }
-    .save-order-btn{ background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; display:none; margin-left:auto; }
-    .save-order-btn:hover{ background:var(--accent); }
-    .save-order-btn.visible{ display:inline-block; }
-    .cast-btn{ background:none; border:none; color:#fff; cursor:pointer; margin:0 5px; opacity:.85; transition:opacity .2s; vertical-align:middle; padding:0; }
-    .cast-btn:hover{ opacity:1; }
-    .cast-btn svg{ width:20px; height:20px; fill:currentColor; vertical-align:middle; }
-    #castStatus{ font-size:11px; color:#ccc; margin-left:2px; display:none; }
     .category-badge{ display:inline-block; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:5px; }
     .delete-btn{ position:absolute; top:10px; right:10px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:25px; height:25px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .3s; }
     .video-card:hover .delete-btn{ opacity:1; }
@@ -48,6 +86,14 @@
     input[type="text"], input[type="url"], input[type="number"]{ background:#1f2937; border:1px solid #374151; border-radius:6px; padding:8px 12px; width:100%; outline:none; }
     input:focus{ border-color:#b81d65; box-shadow:0 0 0 2px rgba(184,29,101,.25); }
     label{ font-size:14px; color:#e5e7eb; }
+    /* ── Drag & drop / reorder ── */
+    .episode-item.dragging{ opacity:.4; border:2px dashed var(--primary) !important; }
+    .episode-item.drag-over{ border-top:3px solid var(--primary); }
+    .drag-handle{ cursor:grab; padding:0 8px; color:#888; flex-shrink:0; user-select:none; }
+    .drag-handle:active{ cursor:grabbing; }
+    .save-order-btn{ background:var(--primary); color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; display:none; margin-left:auto; }
+    .save-order-btn:hover{ background:var(--accent); }
+    .save-order-btn.visible{ display:inline-block; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -172,45 +218,58 @@
         <select id="seasonSelect" class="bg-gray-800 border border-gray-700 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"></select>
       </div>
       <div class="flex items-center mt-4 mb-2">
-        <span class="reorder-hint">Arraste para reordenar</span>
+        <span style="font-size:12px;color:#888;">Arraste para reordenar</span>
         <button id="saveOrderBtn" class="save-order-btn">💾 Salvar Ordem</button>
       </div>
       <div id="episodeListContainer" class="episode-list"></div>
     </div>
   </div>
 
-  <!-- Player Modal -->
+    <!-- Player Modal -->
   <div id="videoPlayerModal" class="modal">
     <div class="video-player-container">
-      <video id="videoPlayer" playsinline webkit-playsinline x-webkit-airplay="allow" airplay="allow"></video>
+      <video id="videoPlayer" playsinline webkit-playsinline x-webkit-airplay="allow"></video>
       <div class="video-controls">
         <div class="progress-container">
           <div id="playerProgress" class="progress-bar"></div>
         </div>
         <div class="controls-row">
           <div class="left-controls">
-            <button id="playPauseBtn" class="control-btn">
+            <button id="playPauseBtn" class="control-btn" title="Play/Pause">
               <span id="playIcon">▶</span>
               <span id="pauseIcon" style="display:none;">⏸</span>
             </button>
             <span id="currentTime" class="time-display">0:00</span>
-            <span class="mx-1">/</span>
+            <span class="time-display">/</span>
             <span id="durationTime" class="time-display">0:00</span>
           </div>
           <div class="right-controls">
             <div class="volume-container">
-              <input id="volumeSlider" type="range" min="0" max="1" step="0.1" value="1" class="mr-2"/>
-              <button id="muteBtn" class="control-btn">
+              <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1"/>
+              <button id="muteBtn" class="control-btn" title="Mudo">
                 <span id="volumeIcon">🔊</span>
                 <span id="muteIcon" style="display:none;">🔇</span>
               </button>
             </div>
             <button id="castBtn" class="cast-btn" title="Transmitir para TV / Chromecast / AirPlay">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3C1.9 3 1 3.9 1 5v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3C1.9 3 1 3.9 1 5v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+              </svg>
             </button>
             <span id="castStatus"></span>
-            <button id="fullscreenBtn" class="control-btn">⛶</button>
-            <button id="closePlayerBtn" class="control-btn">✕</button>
+            <button id="fullscreenBtn" class="control-btn" title="Tela cheia">
+              <span class="fs-enter">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M1.5 1h4a.5.5 0 0 1 0 1H2v3.5a.5.5 0 0 1-1 0v-4A.5.5 0 0 1 1.5 1zm9 0h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V2h-3.5a.5.5 0 0 1 0-1zm-9 9a.5.5 0 0 1 .5.5V14h3.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5zm13 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1 0-1H14v-3.5a.5.5 0 0 1 .5-.5z"/>
+                </svg>
+              </span>
+              <span class="fs-exit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M5.5 0a.5.5 0 0 1 .5.5v4A.5.5 0 0 1 5.5 5h-4a.5.5 0 0 1 0-1H5V.5a.5.5 0 0 1 .5-.5zm5 0a.5.5 0 0 1 .5.5V4h3.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5zm-5 11a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V12H1.5a.5.5 0 0 1 0-1h4a.5.5 0 0 1 .5.5zm5 0a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1H11.5v3.5a.5.5 0 0 1-1 0v-4z"/>
+                </svg>
+              </span>
+            </button>
+            <button id="closePlayerBtn" class="control-btn" title="Fechar">✕</button>
           </div>
         </div>
       </div>
@@ -383,8 +442,25 @@
       progressContainer.addEventListener('touchend', () => { isSeeking = false; });
 
       videoPlayer.addEventListener('timeupdate', updateVideoProgress);
+      videoPlayer.addEventListener('play', () => {
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'inline';
+        const cont = document.querySelector('.video-player-container');
+        cont.classList.add('show-controls');
+        clearTimeout(window._hideCtrl);
+        window._hideCtrl = setTimeout(() => cont.classList.remove('show-controls'), 2500);
+      });
+      videoPlayer.addEventListener('pause', () => {
+        playIcon.style.display = 'inline';
+        pauseIcon.style.display = 'none';
+      });
+      videoPlayer.addEventListener('ended', () => {
+        playIcon.style.display = 'inline';
+        pauseIcon.style.display = 'none';
+      });
       videoPlayer.addEventListener('loadedmetadata', () => { durationTimeDisplay.textContent = formatTime(videoPlayer.duration); });
-      document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fullscreenBtn.innerHTML = '⛶'; });
+      document.addEventListener('fullscreenchange', () => { fullscreenBtn.classList.toggle('is-fullscreen', !!document.fullscreenElement); });
+      document.addEventListener('webkitfullscreenchange', () => { fullscreenBtn.classList.toggle('is-fullscreen', !!(document.fullscreenElement || document.webkitFullscreenElement)); });
 
       // estado inicial do formulário de série
       resetUploadForm();
@@ -814,45 +890,75 @@
       durationTimeDisplay.textContent = formatTime(videoPlayer.duration || 0);
     }
     function toggleFullscreen() {
-      const c = document.querySelector('.video-player-container');
-      if (!document.fullscreenElement) c.requestFullscreen().then(()=> fullscreenBtn.innerHTML = '❌').catch(err=>console.error('FS error:', err));
-      else { document.exitFullscreen(); fullscreenBtn.innerHTML = '⛶'; }
+      const cont = document.querySelector('.video-player-container');
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!fsEl) {
+        const req = cont.requestFullscreen || cont.webkitRequestFullscreen;
+        if (req) req.call(cont).catch(err => console.error('FS error:', err));
+      } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) exit.call(document);
+      }
     }
     function closeVideoPlayer() {
       const oldIframe = document.getElementById('embedFrame');
       if (oldIframe) oldIframe.remove();
-      videoPlayer.pause(); videoPlayer.src=''; videoPlayerModal.style.display='none';
+      videoPlayer.pause(); videoPlayer.src = ''; videoPlayerModal.style.display = 'none';
+      playIcon.style.display = 'inline'; pauseIcon.style.display = 'none';
+      fullscreenBtn.classList.remove('is-fullscreen');
     }
 
     async function handleCast() {
-      // 1. Remote Playback API — Chromecast (Chrome/Edge)
-      if (videoPlayer.remote) {
+      // Verifica se há vídeo carregado
+      if (!videoPlayer.src && !document.getElementById('embedFrame')) {
+        alert('Nenhum vídeo carregado para transmitir.');
+        return;
+      }
+
+      function showStatus(msg, ms = 3000) {
+        castStatus.textContent = msg;
         castStatus.style.display = 'inline';
-        castStatus.textContent = '🔍 Procurando...';
+        if (ms > 0) setTimeout(() => { castStatus.style.display = 'none'; }, ms);
+      }
+
+      // 1. Remote Playback API — Chromecast (Chrome/Edge)
+      if (videoPlayer.remote && typeof videoPlayer.remote.prompt === 'function') {
+        showStatus('🔍 Procurando dispositivos...', 0);
         try {
           await videoPlayer.remote.prompt();
-          castStatus.textContent = '✅ Conectado';
-          setTimeout(() => { castStatus.style.display = 'none'; }, 3000);
+          showStatus('✅ Conectado!');
         } catch(e) {
-          castStatus.textContent = e.name === 'NotAllowedError' ? '❌ Cancelado' : '❌ Sem dispositivos';
-          setTimeout(() => { castStatus.style.display = 'none'; }, 3000);
+          showStatus(e.name === 'NotAllowedError' ? '❌ Cancelado' : '❌ Nenhum dispositivo encontrado');
         }
         return;
       }
+
       // 2. AirPlay — Safari / iOS
       if (typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
         videoPlayer.webkitShowPlaybackTargetPicker();
+        showStatus('📡 Seletor AirPlay aberto');
         return;
       }
+
       // 3. Picture-in-Picture — fallback universal
-      if (document.pictureInPictureEnabled && !videoPlayer.disablePictureInPicture) {
+      if (document.pictureInPictureEnabled && videoPlayer.src) {
         try {
-          if (document.pictureInPictureElement) await document.exitPictureInPicture();
-          else await videoPlayer.requestPictureInPicture();
-        } catch(e) { console.error('PiP error:', e); }
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+            showStatus('PiP fechado');
+          } else {
+            await videoPlayer.requestPictureInPicture();
+            showStatus('📺 Picture-in-Picture ativado');
+          }
+        } catch(e) {
+          console.error('PiP error:', e);
+          showStatus('❌ Falha no PiP');
+        }
         return;
       }
-      alert('Transmissão não disponível neste navegador.\nUse Chrome para Chromecast ou Safari para AirPlay.');
+
+      alert('Transmissão não disponível neste navegador.
+Use Chrome para Chromecast ou Safari para AirPlay.');
     }
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
 

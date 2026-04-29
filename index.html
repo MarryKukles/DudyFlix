@@ -109,11 +109,6 @@
           <p class="hint mt-1">Cole o link direto do vídeo (ex.: Internet Archive). Também aceita embed do YouTube/Vimeo.</p>
         </div>
 
-        <div class="mb-4">
-          <label class="block mb-2">URL da Thumbnail (opcional)</label>
-          <input id="thumbnailUrlInput" type="url" placeholder="Ex.: https://.../thumb.jpg"/>
-        </div>
-
         <div class="flex justify-end">
           <button id="uploadVideoBtn" class="bg-[var(--primary)] hover:bg-[var(--accent)] px-6 py-2 rounded font-medium">Salvar</button>
         </div>
@@ -520,21 +515,19 @@
       return el;
     }
 
-    function showEpisodesModal(serie, defaultSeasonNumber = null) {
+    function showEpisodesModal(serie, defaultSeasonNumber) {
       seriesModalTitle.textContent = serie.title;
       seasonSelect.innerHTML = '';
       (serie.seasons || []).forEach(season => {
         const opt = document.createElement('option');
         opt.value = season.seasonNumber;
-        opt.textContent = `Temporada ${season.seasonNumber}`;
+        opt.textContent = 'Temporada ' + season.seasonNumber;
         seasonSelect.appendChild(opt);
       });
-      // Mostrar a temporada especificada ou a primeira por padrão
-      const targetSeasonNumber = defaultSeasonNumber || (serie.seasons || [])[0]?.seasonNumber || 1;
-      const targetSeason = (serie.seasons || []).find(s => s.seasonNumber === targetSeasonNumber) || (serie.seasons || [])[0];
-      renderEpisodesList(targetSeason ? targetSeason.episodes || [] : [], targetSeason ? targetSeason.seasonNumber : 1);
-      // Selecionar a temporada correta no dropdown
-      seasonSelect.value = targetSeasonNumber;
+      const targetNum = defaultSeasonNumber || ((serie.seasons || [])[0] && (serie.seasons || [])[0].seasonNumber) || 1;
+      const targetSeason = (serie.seasons || []).find(s => s.seasonNumber === targetNum) || (serie.seasons || [])[0];
+      seasonSelect.value = targetNum;
+      renderEpisodesList(targetSeason ? targetSeason.episodes || [] : [], targetNum);
       episodesModal.style.display = 'flex';
       seasonSelect.onchange = () => {
         const num = parseInt(seasonSelect.value, 10);
@@ -554,11 +547,12 @@
         item.draggable = true;
         item.dataset.epNumber = ep.episodeNumber;
         const dragIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>';
+        const thumb = ep.thumbnail || (currentSeries && currentSeries.thumbnail) || 'https://placehold.co/400x225';
         item.innerHTML =
           '<div class="flex items-center" style="flex:1;min-width:0;">'
           + '<span class="drag-handle" title="Arrastar">' + dragIcon + '</span>'
           + '<div class="w-16 h-10 bg-gray-800 rounded mr-3 overflow-hidden flex-shrink-0">'
-          + '<img src="' + ep.thumbnail + '" class="w-full h-full object-cover" alt=""></div>'
+          + '<img src="' + thumb + '" class="w-full h-full object-cover" alt=""></div>'
           + '<div style="min-width:0;">'
           + '<h4 class="font-medium text-sm ep-title-display">' + ep.title + '</h4>'
           + '<p class="text-xs text-gray-400 ep-num-display">Episódio ' + ep.episodeNumber + '</p>'
@@ -670,7 +664,7 @@
       const action = seriesAction.value;
 
       const title = seriesTitle.value.trim();
-      const season = Number(seasonNumber.value) || 1;
+      const season = seasonNumber.value;
       const seriesThumb = (seriesThumbnailUrlInput.value || '').trim();
 
       const fields = episodesContainer.querySelectorAll('.episode-field');
@@ -685,15 +679,12 @@
           f.style.borderColor = 'red';
           return alert('Preencha título e URL do vídeo em todos os episódios.');
         }
-        const episode = {
+          episodes.push({
           episodeNumber: i + 1,
           title: epTitle,
           url: epUrl,
-        };
-        if (seriesThumb) {
-          episode.thumbnail = seriesThumb;
-        }
-        episodes.push(episode);
+          thumbnail: seriesThumb || null,
+        });
       }
 
       try {
@@ -720,16 +711,17 @@
         } else {
           const serieId = existingSeriesSelect.value;
           if (!serieId) return alert('Escolha a série existente.');
+          const existingSerie = series.find(s => (s._id || s.id) === serieId);
+          const autoThumb = (existingSerie && existingSerie.thumbnail) || 'https://placehold.co/400x225';
+          episodes.forEach(ep => { if (!ep.thumbnail) ep.thumbnail = autoThumb; });
           const res = await fetch(`${BACKEND_URL}/api/series/${serieId}/add-episodes`, {
             method:'PUT',
             headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ seasonNumber: season, episodes, seriesThumbnail: seriesThumb || undefined })
+            body: JSON.stringify({ seasonNumber: season, episodes })
           });
           if (res.ok) {
             alert('Episódios adicionados!');
-            uploadModal.style.display='none';
-            resetUploadForm();
-            await loadAllContent();
+            uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
           } else {
             const t = await res.text().catch(()=> ''); console.error('PUT /api/series/:id/add-episodes', res.status, t);
             alert(`Erro (HTTP ${res.status}). Veja console.`);
@@ -751,19 +743,22 @@
       div.className = 'episode-field mb-4 p-4 bg-gray-800 rounded-lg';
       div.style.border = '1px solid #374151';
       div.innerHTML = `
-        <div class="flex justify-between items-center mb-3">
-          <h4 class="font-medium">Episódio ${num}</h4>
-          <button class="remove-episode text-[var(--primary)] hover:text-[var(--accent)] text-sm">Remover</button>
-        </div>
-        <div class="mb-3">
-          <label class="block mb-1">Título</label>
-          <input type="text" class="ep-title" placeholder="Título do episódio">
-        </div>
-        <div class="mb-3">
-          <label class="block mb-1">URL do Vídeo (MP4/HLS/Embed)</label>
-          <input type="url" class="ep-url" placeholder="Ex.: https://archive.org/.../episodio1.mp4">
-          <p class="hint mt-1">Cole o link direto do vídeo hospedado.</p>
-        </div>`;
+  <div class="flex justify-between items-center mb-3">
+    <h4 class="font-medium">Episódio ${num}</h4>
+    <button class="remove-episode text-[var(--primary)] hover:text-[var(--accent)] text-sm">Remover</button>
+  </div>
+
+  <div class="mb-3">
+    <label class="block mb-1">Título</label>
+    <input type="text" class="ep-title" placeholder="Título do episódio">
+  </div>
+
+  <div class="mb-3">
+    <label class="block mb-1">URL do Vídeo (MP4/HLS/Embed)</label>
+    <input type="url" class="ep-url" placeholder="Ex.: https://archive.org/.../episodio1.mp4">
+    <p class="hint mt-1">Cole o link direto do vídeo hospedado.</p>
+  </div>
+`;
       const removeBtn = div.querySelector('.remove-episode');
       removeBtn.addEventListener('click', () => { if (episodesContainer.children.length > 1) { div.remove(); updateEpisodeNumbers(); } });
       episodesContainer.appendChild(div);
@@ -872,6 +867,19 @@
       }
       alert('Transmissao nao disponivel. Use Chrome (Chromecast) ou Safari (AirPlay).');
     }
+    async function deleteSeriesEpisode(seriesId, seasonNumber, episodeNumber) {
+      if (!confirm('Tem certeza que deseja excluir este episódio?')) return;
+      try {
+        const res = await fetch(BACKEND_URL + '/api/series/' + seriesId + '/seasons/' + seasonNumber + '/episodes/' + episodeNumber, { method: 'DELETE' });
+        if (res.ok) {
+          alert('Episódio excluído!');
+          await loadAllContent();
+          const updatedSeries = series.find(s => (s._id || s.id) === seriesId);
+          if (updatedSeries) { currentSeries = updatedSeries; showEpisodesModal(updatedSeries); }
+          else episodesModal.style.display = 'none';
+        } else { alert('Erro ao excluir episódio (HTTP ' + res.status + ').'); }
+      } catch(err) { alert('Falha de rede ao excluir.'); }
+    }
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
 
     // ===========================
@@ -886,31 +894,6 @@
         else { const text = await res.text().catch(()=> ''); console.error(`DELETE /api/${endpoint}/${id} falhou:`, res.status, text); alert(`Erro ao excluir (HTTP ${res.status}).`); }
       } catch (err) {
         console.error(`Falha de rede ao excluir ${type}:`, err); alert('Erro de conexão ao excluir conteúdo.');
-      }
-    }
-
-    async function deleteSeriesEpisode(seriesId, seasonNumber, episodeNumber) {
-      if (!confirm('Tem certeza que deseja excluir este episódio?')) return;
-      const seasonNum = Number(seasonNumber);
-      const episodeNum = Number(episodeNumber);
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/series/${seriesId}/seasons/${seasonNum}/episodes/${episodeNum}`, {
-          method: 'DELETE',
-        });
-        if (res.ok) {
-          alert('Episódio excluído com sucesso!');
-          await loadAllContent();
-          const updatedSeries = series.find((s) => (s._id || s.id) === seriesId);
-          if (updatedSeries) { currentSeries = updatedSeries; showEpisodesModal(updatedSeries); }
-          else episodesModal.style.display = 'none';
-        } else {
-          const text = await res.text().catch(() => '');
-          console.error('DELETE /api/series/:id/seasons/:seasonNumber/episodes/:episodeNumber falhou:', res.status, text);
-          alert(`Erro ao excluir episódio (HTTP ${res.status}): ${text}`);
-        }
-      } catch (err) {
-        console.error('Falha de rede ao excluir episódio:', err);
-        alert('Erro de conexão ao excluir episódio.');
       }
     }
 

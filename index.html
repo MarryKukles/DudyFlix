@@ -703,7 +703,9 @@
           });
           if (res.ok) {
             alert('Série criada!');
-            uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
+            uploadModal.style.display='none';
+            await loadAllContent();
+            resetUploadForm();
           } else {
             const t = await res.text().catch(()=> ''); console.error('POST /api/series/by-url', res.status, t);
             alert(`Erro (HTTP ${res.status}). Veja console.`);
@@ -721,7 +723,9 @@
           });
           if (res.ok) {
             alert('Episódios adicionados!');
-            uploadModal.style.display='none'; resetUploadForm(); loadAllContent();
+            uploadModal.style.display='none';
+            await loadAllContent();
+            resetUploadForm();
           } else {
             const t = await res.text().catch(()=> ''); console.error('PUT /api/series/:id/add-episodes', res.status, t);
             alert(`Erro (HTTP ${res.status}). Veja console.`);

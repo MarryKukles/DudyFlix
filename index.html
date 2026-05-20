@@ -862,56 +862,134 @@
         if (ms > 0) setTimeout(() => { castStatus.style.display = 'none'; }, ms);
       }
 
-      // ── 1. AirPlay nativo (Safari / iOS / macOS) ──
-      if (typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isIOS    = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      // ── Safari / iOS → AirPlay direto ──
+      if ((isSafari || isIOS) && typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
         videoPlayer.webkitShowPlaybackTargetPicker();
         return;
       }
 
-      // ── 2. Remote Playback API (Chromecast via Chrome em Android/PC) ──
-      if (videoPlayer.remote && typeof videoPlayer.remote.prompt === 'function') {
-        try {
-          const availability = await videoPlayer.remote.watchAvailability(available => {
-            castBtn.title = available ? 'Transmitir para dispositivo' : 'Nenhum dispositivo encontrado';
-          });
-        } catch(e) {}
-        setStatus('Procurando...', 0);
-        videoPlayer.remote.prompt()
-          .then(() => { setStatus('Conectado!', 0); })
-          .catch(e => {
-            castStatus.style.display = 'none';
-            if (e.name !== 'NotAllowedError') tryPiP();
-          });
-        return;
-      }
-
-      // ── 3. Picture-in-Picture (fallback universal) ──
-      tryPiP();
+      // ── Todos os outros → mostrar modal de opções ──
+      showCastOptions(hasVideo, setStatus);
     }
 
-    function tryPiP() {
-      function setStatus(msg, ms) {
-        castStatus.textContent = msg;
-        castStatus.style.display = 'inline';
-        if (ms > 0) setTimeout(() => { castStatus.style.display = 'none'; }, ms);
-      }
-      if (document.pictureInPictureEnabled && videoPlayer.src && !videoPlayer.disablePictureInPicture) {
+    function showCastOptions(hasVideo, setStatus) {
+      // Remove modal anterior se existir
+      const old = document.getElementById('castModal');
+      if (old) old.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'castModal';
+      modal.style.cssText = (
+        'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;'
+        + 'background:rgba(0,0,0,.7);'
+      );
+      modal.innerHTML = `
+        <div style="background:#1a1a2e;border-radius:12px;padding:28px 32px;min-width:300px;max-width:400px;color:#fff;box-shadow:0 8px 32px rgba(0,0,0,.5);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:17px;font-weight:600;">Transmitir para</h3>
+            <button id="castModalClose" style="background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+          </div>
+
+          <button id="castOptChromecast" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.07);border:none;border-radius:8px;padding:14px 16px;color:#fff;cursor:pointer;margin-bottom:10px;text-align:left;transition:background .2s;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#e50970"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3C1.9 3 1 3.9 1 5v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+            <div>
+              <div style="font-weight:600;font-size:14px;">Chromecast / Google TV</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">Clique no ícone ⬛ na barra do Chrome</div>
+            </div>
+          </button>
+
+          <button id="castOptPiP" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.07);border:none;border-radius:8px;padding:14px 16px;color:#fff;cursor:pointer;margin-bottom:10px;text-align:left;transition:background .2s;" ${!hasVideo ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#e50970"><path d="M19 7H5c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 11H5V9h14v9zm-8-2h7v-5h-7v5z"/></svg>
+            <div>
+              <div style="font-weight:600;font-size:14px;">Picture-in-Picture</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">Janela flutuante — arraste para outro monitor</div>
+            </div>
+          </button>
+
+          <button id="castOptMirror" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.07);border:none;border-radius:8px;padding:14px 16px;color:#fff;cursor:pointer;text-align:left;transition:background .2s;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#e50970"><path d="M20 3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h3l-1 1v1h12v-1l-1-1h3c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 13H4V5h16v11z"/></svg>
+            <div>
+              <div style="font-weight:600;font-size:14px;">Espelhar Tela</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">Use o espelhamento nativo do seu sistema</div>
+            </div>
+          </button>
+        </div>`;
+
+      document.body.appendChild(modal);
+
+      // Fechar
+      document.getElementById('castModalClose').onclick = () => modal.remove();
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+      // Chromecast: abrir documentação do cast nativo do Chrome
+      document.getElementById('castOptChromecast').addEventListener('click', () => {
+        modal.remove();
+        // Tenta abrir o seletor de cast nativo do Chrome via extensão
+        // O Chrome expõe isso através do menu "Salvar e compartilhar > Transmitir"
+        // Não há API JS direta — orientar o usuário
+        const tip = document.createElement('div');
+        tip.style.cssText = (
+          'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+          + 'background:#333;color:#fff;padding:12px 20px;border-radius:8px;'
+          + 'font-size:13px;z-index:9999;text-align:center;max-width:340px;'
+          + 'box-shadow:0 4px 16px rgba(0,0,0,.4);'
+        );
+        tip.innerHTML = (
+          '<strong>Para Chromecast:</strong><br>'
+          + 'No Chrome: Menu (&vellip;) → <strong>Salvar e compartilhar → Transmitir...</strong><br>'
+          + '<span style="color:#aaa;font-size:11px;">ou clique no ícone ⬛ na barra de endereço</span>'
+        );
+        document.body.appendChild(tip);
+        setTimeout(() => tip.remove(), 6000);
+      });
+
+      // Picture-in-Picture
+      document.getElementById('castOptPiP').addEventListener('click', () => {
+        modal.remove();
+        if (!hasVideo) return;
         if (document.pictureInPictureElement) {
           document.exitPictureInPicture().catch(() => {});
         } else {
-          videoPlayer.requestPictureInPicture()
-            .then(() => { setStatus('Picture-in-Picture ativo', 0); })
-            .catch(() => { setStatus('PiP indisponível', 2000); });
+          videoPlayer.requestPictureInPicture().catch(e => {
+            alert('Picture-in-Picture não disponível neste momento.');
+          });
         }
-      } else {
-        alert(
-          'Para transmitir para sua TV:\n\n'
-          + '• Chromecast: clique no ícone de cast (□) na barra do Chrome\n'
-          + '• AirPlay: use o Safari no iPhone ou Mac\n'
-          + '• Smart TV: use o espelhamento de tela do seu dispositivo'
+      });
+
+      // Espelhar tela
+      document.getElementById('castOptMirror').addEventListener('click', () => {
+        modal.remove();
+        const tip = document.createElement('div');
+        tip.style.cssText = (
+          'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+          + 'background:#333;color:#fff;padding:12px 20px;border-radius:8px;'
+          + 'font-size:13px;z-index:9999;text-align:center;max-width:340px;'
+          + 'box-shadow:0 4px 16px rgba(0,0,0,.4);'
         );
-      }
+        tip.innerHTML = (
+          '<strong>Espelhar tela:</strong><br>'
+          + '• Windows: Win+K (Miracast/WiDi)<br>'
+          + '• Mac: Menu Apple → Espelhar tela<br>'
+          + '• Android: Config → Transmitir tela<br>'
+          + '• iOS: Central de Controle → Espelhar tela'
+        );
+        document.body.appendChild(tip);
+        setTimeout(() => tip.remove(), 7000);
+      });
+
+      // Hover effects
+      ['castOptChromecast','castOptPiP','castOptMirror'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn && !btn.disabled) {
+          btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(229,9,112,.15)'; });
+          btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(255,255,255,.07)'; });
+        }
+      });
     }
+
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
 
     // ===========================

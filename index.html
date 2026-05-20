@@ -10,8 +10,6 @@
   <link rel="apple-touch-icon" href="favicon.png">
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Cast SDK -->
-  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
   <style>
     :root { --primary:#e50970; --secondary:#221F1F; --accent:#b81d65; }
     body{ background:var(--secondary); color:#fff; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -846,47 +844,14 @@
       videoPlayer.pause(); videoPlayer.src = ''; videoPlayerModal.style.display = 'none';
       playIcon.style.display = 'inline'; pauseIcon.style.display = 'none';
       fullscreenBtn.classList.remove('is-fullscreen');
-      castBtn.classList.remove('casting');
       castStatus.style.display = 'none';
     }
 
-    // ── Cast: inicializa Google Cast SDK ──────────────────────────────
-    let _castInitialized = false;
     let _currentVideoUrl = null;
-
-    function initCastApi() {
-      if (_castInitialized) return;
-      _castInitialized = true;
-      try {
-        cast.framework.CastContext.getInstance().setOptions({
-          receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-          autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
-        });
-        cast.framework.CastContext.getInstance().addEventListener(
-          cast.framework.CastContextEventType.CAST_STATE_CHANGED,
-          function(e) {
-            const connected = e.castState === cast.framework.CastState.CONNECTED;
-            castBtn.classList.toggle('casting', connected);
-            if (connected) {
-              castStatus.textContent = 'Transmitindo...';
-              castStatus.style.display = 'inline';
-            } else {
-              castStatus.style.display = 'none';
-            }
-          }
-        );
-      } catch(e) { console.warn('Cast SDK init error:', e); }
-    }
-
-    // Chamado automaticamente pelo SDK quando estiver pronto
-    window.__onGCastApiAvailable = function(isAvailable) {
-      if (isAvailable) initCastApi();
-    };
 
     async function handleCast() {
       const hasVideo = !!videoPlayer.src;
-      const hasEmbed = !!document.getElementById('embedFrame');
-      if (!hasVideo && !hasEmbed) {
+      if (!hasVideo && !document.getElementById('embedFrame')) {
         alert('Abra um filme ou episódio antes de transmitir.');
         return;
       }
@@ -897,120 +862,55 @@
         if (ms > 0) setTimeout(() => { castStatus.style.display = 'none'; }, ms);
       }
 
-      // ── 1. Google Cast SDK (Chromecast) ──
-      try {
-        if (typeof cast !== 'undefined' && cast.framework) {
-          initCastApi();
-          const ctx = cast.framework.CastContext.getInstance();
-          const state = ctx.getCastState();
+      // ── 1. AirPlay nativo (Safari / iOS / macOS) ──
+      if (typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
+        videoPlayer.webkitShowPlaybackTargetPicker();
+        return;
+      }
 
-          // Já conectado: enviar/pausar mídia
-          if (state === cast.framework.CastState.CONNECTED) {
-            const session = ctx.getCurrentSession();
-            if (session && hasVideo) {
-              const mediaInfo = new chrome.cast.media.MediaInfo(_currentVideoUrl || videoPlayer.src, 'video/mp4');
-              mediaInfo.streamType = chrome.cast.media.StreamType.BUFFERED;
-              const req = new chrome.cast.media.LoadRequest(mediaInfo);
-              req.currentTime = videoPlayer.currentTime || 0;
-              session.loadMedia(req)
-                .then(() => { setStatus('Enviando para TV...', 0); })
-                .catch(e => { setStatus('Erro ao enviar: ' + e, 4000); });
-            } else {
-              // Desconectar
-              ctx.endCurrentSession(true);
-              setStatus('Desconectado', 2000);
-            }
-            return;
-          }
+      // ── 2. Remote Playback API (Chromecast via Chrome em Android/PC) ──
+      if (videoPlayer.remote && typeof videoPlayer.remote.prompt === 'function') {
+        try {
+          const availability = await videoPlayer.remote.watchAvailability(available => {
+            castBtn.title = available ? 'Transmitir para dispositivo' : 'Nenhum dispositivo encontrado';
+          });
+        } catch(e) {}
+        setStatus('Procurando...', 0);
+        videoPlayer.remote.prompt()
+          .then(() => { setStatus('Conectado!', 0); })
+          .catch(e => {
+            castStatus.style.display = 'none';
+            if (e.name !== 'NotAllowedError') tryPiP();
+          });
+        return;
+      }
 
-          // Não conectado: abrir seletor de dispositivos
-          if (state === cast.framework.CastState.NOT_CONNECTED || state === cast.framework.CastState.NO_DEVICES_AVAILABLE) {
-            setStatus('Procurando dispositivos...', 0);
-            ctx.requestSession().then(() => {
-              // Após conectar, enviar mídia automaticamente
-              if (hasVideo) {
-                const session = ctx.getCurrentSession();
-                const mediaInfo = new chrome.cast.media.MediaInfo(_currentVideoUrl || videoPlayer.src, 'video/mp4');
-                mediaInfo.streamType = chrome.cast.media.StreamType.BUFFERED;
-                const req = new chrome.cast.media.LoadRequest(mediaInfo);
-                session.loadMedia(req)
-                  .then(() => { setStatus('Na TV!', 0); })
-                  .catch(() => { setStatus('Erro ao enviar mídia', 3000); });
-              }
-            }).catch(e => {
-              if (e && e.code === 'cancel') {
-                setStatus('Cancelado', 2000);
-              } else if (e && (e.code === 'receiver_unavailable' || e.description === 'No receivers found.')) {
-                setStatus('', 0);
-                // Nenhum Chromecast — tentar fallbacks
-                tryFallbackCast();
-              } else {
-                setStatus('Sem dispositivos Chromecast', 3000);
-                tryFallbackCast();
-              }
-            });
-            return;
-          }
-        }
-      } catch(e) { console.warn('Cast SDK error:', e); }
-
-      // Cast SDK não disponível, tentar fallbacks
-      tryFallbackCast();
+      // ── 3. Picture-in-Picture (fallback universal) ──
+      tryPiP();
     }
 
-    function tryFallbackCast() {
+    function tryPiP() {
       function setStatus(msg, ms) {
         castStatus.textContent = msg;
         castStatus.style.display = 'inline';
         if (ms > 0) setTimeout(() => { castStatus.style.display = 'none'; }, ms);
       }
-
-      // ── 2. Remote Playback API (alguns browsers/dispositivos) ──
-      if (videoPlayer.remote && typeof videoPlayer.remote.prompt === 'function') {
-        setStatus('Procurando dispositivos...', 0);
-        videoPlayer.remote.prompt().then(() => {
-          setStatus('Conectado!', 0);
-        }).catch(e => {
-          setStatus(e.name === 'NotAllowedError' ? 'Cancelado' : 'Sem dispositivos', 3000);
-        });
-        return;
-      }
-
-      // ── 3. AirPlay (Safari / iOS) ──
-      if (typeof videoPlayer.webkitShowPlaybackTargetPicker === 'function') {
-        videoPlayer.webkitShowPlaybackTargetPicker();
-        setStatus('Seletor AirPlay aberto', 3000);
-        return;
-      }
-
-      // ── 4. Picture-in-Picture (fallback universal) ──
-      if (document.pictureInPictureEnabled && videoPlayer.src) {
+      if (document.pictureInPictureEnabled && videoPlayer.src && !videoPlayer.disablePictureInPicture) {
         if (document.pictureInPictureElement) {
-          document.exitPictureInPicture().then(() => setStatus('PiP fechado', 2000)).catch(() => {});
+          document.exitPictureInPicture().catch(() => {});
         } else {
-          videoPlayer.requestPictureInPicture().then(() => {
-            setStatus('Picture-in-Picture ativado', 0);
-          }).catch(() => {
-            setStatus('PiP indisponível', 2000);
-          });
+          videoPlayer.requestPictureInPicture()
+            .then(() => { setStatus('Picture-in-Picture ativo', 0); })
+            .catch(() => { setStatus('PiP indisponível', 2000); });
         }
-        return;
+      } else {
+        alert(
+          'Para transmitir para sua TV:\n\n'
+          + '• Chromecast: clique no ícone de cast (□) na barra do Chrome\n'
+          + '• AirPlay: use o Safari no iPhone ou Mac\n'
+          + '• Smart TV: use o espelhamento de tela do seu dispositivo'
+        );
       }
-
-      alert('Transmissão não disponível.\n\nPara Chromecast: use Chrome no PC/Android.\nPara AirPlay: use Safari no iPhone/Mac.');
-    }
-    async function deleteSeriesEpisode(seriesId, seasonNumber, episodeNumber) {
-      if (!confirm('Tem certeza que deseja excluir este episódio?')) return;
-      try {
-        const res = await fetch(BACKEND_URL + '/api/series/' + seriesId + '/seasons/' + seasonNumber + '/episodes/' + episodeNumber, { method: 'DELETE' });
-        if (res.ok) {
-          alert('Episódio excluído!');
-          await loadAllContent();
-          const updatedSeries = series.find(s => (s._id || s.id) === seriesId);
-          if (updatedSeries) { currentSeries = updatedSeries; showEpisodesModal(updatedSeries); }
-          else episodesModal.style.display = 'none';
-        } else { alert('Erro ao excluir episódio (HTTP ' + res.status + ').'); }
-      } catch(err) { alert('Falha de rede ao excluir.'); }
     }
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
 

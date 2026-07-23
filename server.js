@@ -208,6 +208,41 @@ app.delete("/api/series/:id", async (req, res) => {
   }
 });
 
+
+// ── PATCH /api/videos/:id/thumbnail ──────────────────────────────
+app.patch("/api/videos/:id/thumbnail", async (req, res) => {
+  try {
+    const { thumbnail } = req.body || {};
+    if (!thumbnail) return res.status(400).json({ message: "thumbnail é obrigatório" });
+    const video = await Video.findByIdAndUpdate(
+      req.params.id,
+      { thumbnail },
+      { new: true }
+    );
+    if (!video) return res.status(404).json({ message: "Vídeo não encontrado" });
+    res.json(video);
+  } catch (err) {
+    res.status(500).json({ message: "Erro interno", error: err.message });
+  }
+});
+
+// ── PATCH /api/series/:id/thumbnail ──────────────────────────────
+app.patch("/api/series/:id/thumbnail", async (req, res) => {
+  try {
+    const { thumbnail } = req.body || {};
+    if (!thumbnail) return res.status(400).json({ message: "thumbnail é obrigatório" });
+    const serie = await Series.findByIdAndUpdate(
+      req.params.id,
+      { thumbnail },
+      { new: true }
+    );
+    if (!serie) return res.status(404).json({ message: "Série não encontrada" });
+    res.json(serie);
+  } catch (err) {
+    res.status(500).json({ message: "Erro interno", error: err.message });
+  }
+});
+
 // =====================
 // Inicialização
 // =====================

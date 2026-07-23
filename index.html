@@ -9,6 +9,10 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
 
+  <!-- Preconnect para domínios de imagem -->
+  <link rel="preconnect" href="https://archive.org">
+  <link rel="preconnect" href="https://ia800.us.archive.org">
+  <link rel="preconnect" href="https://placehold.co">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { --primary:#e50970; --secondary:#221F1F; --accent:#b81d65; }
@@ -57,6 +61,17 @@
     input[type="text"], input[type="url"], input[type="number"]{ background:#1f2937; border:1px solid #374151; border-radius:6px; padding:8px 12px; width:100%; outline:none; }
     input:focus{ border-color:#b81d65; box-shadow:0 0 0 2px rgba(184,29,101,.25); }
     label{ font-size:14px; color:#e5e7eb; }
+    /* ── Skeleton / lazy load ── */
+    .thumb-wrap{ position:relative; width:100%; height:100%; background:#1a1a2e; overflow:hidden; }
+    .thumb-wrap::before{ content:""; position:absolute; inset:0;
+      background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.06) 50%,transparent 100%);
+      animation:shimmer 1.4s infinite; }
+    @keyframes shimmer{ 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+    .thumb-wrap img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+      opacity:0; transition:opacity .35s ease; }
+    .thumb-wrap img.loaded{ opacity:1; }
+    .thumb-wrap img.error{ opacity:.3; filter:grayscale(1); }
+    .group:hover .thumb-wrap img.loaded{ opacity:.5; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -414,6 +429,43 @@
     });
 
     // ===========================
+    // LAZY LOAD IMAGES
+    // ===========================
+    const FALLBACK_IMG = 'https://placehold.co/400x225/1a1a2e/888?text=Sem+Imagem';
+
+    function activateLazyImages() {
+      const imgs = document.querySelectorAll('img[data-src]');
+      if (!imgs.length) return;
+
+      if ('IntersectionObserver' in window) {
+        const obs = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const img = entry.target;
+            loadImg(img);
+            observer.unobserve(img);
+          });
+        }, { rootMargin: '200px' });
+        imgs.forEach(img => obs.observe(img));
+      } else {
+        // Fallback: carregar tudo imediatamente
+        imgs.forEach(img => loadImg(img));
+      }
+    }
+
+    function loadImg(img) {
+      const src = img.dataset.src;
+      if (!src) return;
+      img.onload = () => img.classList.add('loaded');
+      img.onerror = () => {
+        img.src = FALLBACK_IMG;
+        img.classList.add('error', 'loaded');
+      };
+      img.src = src;
+      delete img.dataset.src;
+    }
+
+    // ===========================
     // DATA LOAD
     // ===========================
     async function loadAllContent() {
@@ -454,6 +506,7 @@
           </div>`;
       }
       contentTitle.textContent = currentCategory === 'all' ? 'Todos os Vídeos' : (currentCategory === 'filmes' ? 'Filmes' : 'Séries');
+      activateLazyImages();
     }
 
     function createVideoCard(video) {
@@ -461,7 +514,7 @@
       el.className = 'video-card relative group';
       el.innerHTML = `
         <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
-          <img src="${video.thumbnail}" alt="${video.title}" class="absolute w-full h-full object-cover group-hover:opacity-50 transition-opacity">
+          <div class="thumb-wrap"><img data-src="${video.thumbnail}" alt="${video.title}" loading="lazy"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
           <div class="absolute bottom-2 left-2 right-2">
             <h4 class="text-sm font-semibold truncate">${video.title}</h4>
@@ -493,7 +546,7 @@
       el.className = 'video-card relative group';
       el.innerHTML = `
         <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
-          <img src="${serie.thumbnail}" alt="${serie.title}" class="absolute w-full h-full object-cover group-hover:opacity-50 transition-opacity">
+          <div class="thumb-wrap"><img data-src="${serie.thumbnail}" alt="${serie.title}" loading="lazy"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
           <div class="absolute bottom-2 left-2 right-2">
             <h4 class="text-sm font-semibold truncate">${serie.title}</h4>

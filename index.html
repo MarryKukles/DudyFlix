@@ -210,7 +210,7 @@
   <!-- Player Modal -->
   <div id="videoPlayerModal" class="modal">
     <div class="video-player-container">
-      <video id="videoPlayer" playsinline webkit-playsinline x-webkit-airplay="allow"></video>
+      <video id="videoPlayer" playsinline webkit-playsinline x-webkit-airplay="allow" preload="metadata"></video>
       <div class="video-controls">
         <div class="progress-container">
           <div id="playerProgress" class="progress-bar"></div>
@@ -561,7 +561,10 @@
             </svg>
           </button>
         </div>`;
-      el.querySelector('.relative').addEventListener('click', (e) => {
+      const relVideo = el.querySelector('.relative');
+      relVideo.addEventListener('mouseenter', () => preloadVideo(video.url));
+      relVideo.addEventListener('mouseleave', cancelPreload);
+      relVideo.addEventListener('click', (e) => {
         if (e.target.closest('.delete-btn') || e.target.closest('.edit-thumb-btn')) return;
         playVideo(video.url);
       });
@@ -603,7 +606,15 @@
             </svg>
           </button>
         </div>`;
-      el.querySelector('.relative').addEventListener('click', (e) => {
+      const relSerie = el.querySelector('.relative');
+      relSerie.addEventListener('mouseenter', () => {
+        // Pré-carregar ep 1 da temporada 1 ao hover na série
+        const s1 = (serie.seasons || [])[0];
+        const ep1 = s1 && s1.episodes && s1.episodes[0];
+        if (ep1) preloadVideo(ep1.url);
+      });
+      relSerie.addEventListener('mouseleave', cancelPreload);
+      relSerie.addEventListener('click', (e) => {
         if (e.target.closest('.delete-btn') || e.target.closest('.edit-thumb-btn')) return;
         const fresh = series.find(s => (s._id||s.id)===(serie._id||serie.id)) || serie;
         currentSeries = fresh; showEpisodesModal(fresh);
@@ -686,6 +697,8 @@
             else episodeListContainer.insertBefore(dragSrc, item);
           }
         });
+        item.addEventListener('mouseenter', () => preloadVideo(ep.url));
+        item.addEventListener('mouseleave', cancelPreload);
         item.addEventListener('click', e => {
           if (e.target.closest('.delete-episode') || e.target.closest('.drag-handle')) return;
           playVideo(ep.url); episodesModal.style.display = 'none';
@@ -891,8 +904,16 @@
       }
 
       _currentVideoUrl = url;
-      videoPlayer.src = url;
-      videoPlayerModal.style.display = 'flex';
+      // Se o preloader já carregou este URL, aproveitar o buffer
+      if (_preloadedUrl === url && _preloader.readyState >= 2) {
+        videoPlayer.src = url;
+        videoPlayerModal.style.display = 'flex';
+        videoPlayer.currentTime = _preloader.currentTime || 0;
+        _preloader.src = ''; _preloadedUrl = null;
+      } else {
+        videoPlayer.src = url;
+        videoPlayerModal.style.display = 'flex';
+      }
       videoPlayer.play().catch(e => console.error('Erro ao reproduzir vídeo:', e));
     }
     function togglePlayPause() {
@@ -940,6 +961,30 @@
     }
 
     let _currentVideoUrl = null;
+    // Elemento oculto para pré-carregar vídeos ao hover
+    const _preloader = document.createElement('video');
+    _preloader.preload = 'auto';
+    _preloader.muted = true;
+    _preloader.style.display = 'none';
+    document.body.appendChild(_preloader);
+    let _preloadTimer = null;
+    let _preloadedUrl = null;
+
+    function preloadVideo(url) {
+      if (!url || /youtube|youtu\.be|vimeo/.test(url)) return;
+      if (_preloadedUrl === url) return; // já carregado
+      clearTimeout(_preloadTimer);
+      // Delay de 300ms para não pré-carregar em hovers acidentais
+      _preloadTimer = setTimeout(() => {
+        _preloadedUrl = url;
+        _preloader.src = url;
+        _preloader.load();
+      }, 300);
+    }
+
+    function cancelPreload() {
+      clearTimeout(_preloadTimer);
+    }
 
     async function handleCast() {
       const hasVideo = !!videoPlayer.src;

@@ -68,9 +68,9 @@
       animation:shimmer 1.4s infinite; }
     @keyframes shimmer{ 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
     .thumb-wrap img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-      opacity:0; transition:opacity .35s ease; }
+      opacity:0; transition:opacity .4s ease; will-change:opacity; }
     .thumb-wrap img.loaded{ opacity:1; }
-    .thumb-wrap img.error{ opacity:.3; filter:grayscale(1); }
+    .thumb-wrap img.error{ opacity:.25; filter:grayscale(1); }
     .group:hover .thumb-wrap img.loaded{ opacity:.5; }
   </style>
 </head>
@@ -429,40 +429,25 @@
     });
 
     // ===========================
-    // LAZY LOAD IMAGES
+    // IMAGE LOAD HANDLERS
     // ===========================
     const FALLBACK_IMG = 'https://placehold.co/400x225/1a1a2e/888?text=Sem+Imagem';
 
     function activateLazyImages() {
-      const imgs = document.querySelectorAll('img[data-src]');
-      if (!imgs.length) return;
-
-      if ('IntersectionObserver' in window) {
-        const obs = new IntersectionObserver((entries, observer) => {
-          entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            const img = entry.target;
-            loadImg(img);
-            observer.unobserve(img);
-          });
-        }, { rootMargin: '200px' });
-        imgs.forEach(img => obs.observe(img));
-      } else {
-        // Fallback: carregar tudo imediatamente
-        imgs.forEach(img => loadImg(img));
-      }
-    }
-
-    function loadImg(img) {
-      const src = img.dataset.src;
-      if (!src) return;
-      img.onload = () => img.classList.add('loaded');
-      img.onerror = () => {
-        img.src = FALLBACK_IMG;
-        img.classList.add('error', 'loaded');
-      };
-      img.src = src;
-      delete img.dataset.src;
+      document.querySelectorAll('.card-img').forEach(img => {
+        if (img.complete && img.naturalWidth > 0) {
+          img.classList.add('loaded');
+        } else if (img.complete) {
+          img.src = FALLBACK_IMG;
+          img.classList.add('error', 'loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+          img.addEventListener('error', () => {
+            img.src = FALLBACK_IMG;
+            img.classList.add('error', 'loaded');
+          }, { once: true });
+        }
+      });
     }
 
     // ===========================
@@ -514,7 +499,7 @@
       el.className = 'video-card relative group';
       el.innerHTML = `
         <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
-          <div class="thumb-wrap"><img data-src="${video.thumbnail}" alt="${video.title}" loading="lazy"></div>
+          <div class="thumb-wrap"><img src="${video.thumbnail}" alt="${video.title}" loading="lazy" class="card-img"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
           <div class="absolute bottom-2 left-2 right-2">
             <h4 class="text-sm font-semibold truncate">${video.title}</h4>
@@ -546,7 +531,7 @@
       el.className = 'video-card relative group';
       el.innerHTML = `
         <div class="relative pb-[56.25%] overflow-hidden rounded-lg cursor-pointer">
-          <div class="thumb-wrap"><img data-src="${serie.thumbnail}" alt="${serie.title}" loading="lazy"></div>
+          <div class="thumb-wrap"><img src="${serie.thumbnail}" alt="${serie.title}" loading="lazy" class="card-img"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
           <div class="absolute bottom-2 left-2 right-2">
             <h4 class="text-sm font-semibold truncate">${serie.title}</h4>

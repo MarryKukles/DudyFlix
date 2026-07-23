@@ -57,6 +57,12 @@
     .category-badge{ display:inline-block; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:5px; }
     .delete-btn{ position:absolute; top:10px; right:10px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:25px; height:25px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .3s; }
     .video-card:hover .delete-btn{ opacity:1; }
+    .edit-thumb-btn{ position:absolute; top:10px; left:10px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:25px; height:25px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .3s; }
+    .video-card:hover .edit-thumb-btn{ opacity:1; }
+    /* Modal de editar capa */
+    #editThumbModal{ position:fixed; inset:0; z-index:200; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); }
+    #editThumbModal.open{ display:flex; }
+    #editThumbBox{ background:#1a1a2e; border-radius:12px; padding:24px 28px; width:90%; max-width:420px; }
     .hint{ font-size:12px; color:#aaa; }
     input[type="text"], input[type="url"], input[type="number"]{ background:#1f2937; border:1px solid #374151; border-radius:6px; padding:8px 12px; width:100%; outline:none; }
     input:focus{ border-color:#b81d65; box-shadow:0 0 0 2px rgba(184,29,101,.25); }
@@ -251,6 +257,28 @@
     <h1 id="contentTitle" class="text-2xl font-bold mb-6">Meus Vídeos</h1>
     <div id="videosContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
   </main>
+
+  <!-- Modal Editar Capa -->
+  <div id="editThumbModal">
+    <div id="editThumbBox">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-white font-semibold text-base">Alterar Capa</h3>
+        <button id="editThumbClose" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <div class="mb-2" style="font-size:13px;color:#aaa;" id="editThumbName"></div>
+      <div class="mb-4">
+        <label class="block mb-2" style="font-size:13px;">Nova URL da Capa</label>
+        <input id="editThumbUrl" type="url" placeholder="https://.../capa.jpg" style="width:100%;"/>
+      </div>
+      <div id="editThumbPreviewWrap" style="display:none;margin-bottom:14px;">
+        <img id="editThumbPreview" src="" alt="preview" style="width:100%;border-radius:6px;max-height:180px;object-fit:cover;">
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button id="editThumbPreviewBtn" class="text-sm px-4 py-2 rounded" style="background:rgba(255,255,255,.1);color:#fff;border:none;cursor:pointer;">Pré-visualizar</button>
+        <button id="editThumbSave" class="text-sm px-5 py-2 rounded font-medium" style="background:var(--primary);color:#fff;border:none;cursor:pointer;">Salvar</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ===========================
@@ -522,6 +550,11 @@
               </svg>
             </button>
           </div>
+          <button class="edit-thumb-btn" title="Alterar capa">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </button>
           <button class="delete-btn" data-id="${video._id || video.id}" data-type="video">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -555,6 +588,11 @@
               </svg>
             </button>
           </div>
+          <button class="edit-thumb-btn" title="Alterar capa">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </button>
           <button class="delete-btn" data-id="${serie._id || serie.id}" data-type="series">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -563,6 +601,7 @@
         </div>`;
       el.querySelector('.relative').addEventListener('click', () => { const fresh = series.find(s => (s._id||s.id)===(serie._id||serie.id)) || serie; currentSeries = fresh; showEpisodesModal(fresh); });
       el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(serie._id || serie.id, 'series'); });
+      el.querySelector('.edit-thumb-btn').addEventListener('click', (e) => { e.stopPropagation(); openEditThumb(serie._id || serie.id, 'series', serie.title, el); });
       return el;
     }
 
@@ -1036,6 +1075,71 @@
     }
 
     function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
+
+    // ===========================
+    // EDITAR CAPA
+    // ===========================
+    const editThumbModal = document.getElementById('editThumbModal');
+    const editThumbClose = document.getElementById('editThumbClose');
+    const editThumbUrl   = document.getElementById('editThumbUrl');
+    const editThumbSave  = document.getElementById('editThumbSave');
+    const editThumbName  = document.getElementById('editThumbName');
+    const editThumbPreviewBtn = document.getElementById('editThumbPreviewBtn');
+    const editThumbPreview    = document.getElementById('editThumbPreview');
+    const editThumbPreviewWrap = document.getElementById('editThumbPreviewWrap');
+    let _editThumbId = null, _editThumbType = null, _editThumbEl = null;
+
+    editThumbClose.addEventListener('click', () => { editThumbModal.classList.remove('open'); editThumbUrl.value = ''; editThumbPreviewWrap.style.display = 'none'; });
+    editThumbModal.addEventListener('click', e => { if (e.target === editThumbModal) editThumbClose.click(); });
+
+    editThumbPreviewBtn.addEventListener('click', () => {
+      const url = editThumbUrl.value.trim();
+      if (!url) return;
+      editThumbPreview.src = url;
+      editThumbPreviewWrap.style.display = 'block';
+    });
+
+    function openEditThumb(id, type, title, cardEl) {
+      _editThumbId = id; _editThumbType = type; _editThumbEl = cardEl;
+      editThumbName.textContent = title;
+      editThumbUrl.value = '';
+      editThumbPreviewWrap.style.display = 'none';
+      editThumbModal.classList.add('open');
+      setTimeout(() => editThumbUrl.focus(), 100);
+    }
+
+    editThumbSave.addEventListener('click', async () => {
+      const url = editThumbUrl.value.trim();
+      if (!url) { editThumbUrl.style.borderColor = 'var(--primary)'; return; }
+      editThumbSave.disabled = true; editThumbSave.textContent = 'Salvando...';
+      try {
+        const endpoint = _editThumbType === 'video'
+          ? `${BACKEND_URL}/api/videos/${_editThumbId}/thumbnail`
+          : `${BACKEND_URL}/api/series/${_editThumbId}/thumbnail`;
+        const res = await fetch(endpoint, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thumbnail: url })
+        });
+        if (res.ok) {
+          // Atualizar a imagem no card sem recarregar tudo
+          const img = _editThumbEl && _editThumbEl.querySelector('.card-img');
+          if (img) { img.classList.remove('loaded'); img.src = url; img.onload = () => img.classList.add('loaded'); }
+          // Atualizar array local
+          if (_editThumbType === 'video') {
+            const v = videos.find(x => (x._id||x.id) === _editThumbId);
+            if (v) v.thumbnail = url;
+          } else {
+            const s = series.find(x => (x._id||x.id) === _editThumbId);
+            if (s) s.thumbnail = url;
+          }
+          editThumbClose.click();
+        } else {
+          alert('Erro ao salvar capa (HTTP ' + res.status + ').');
+        }
+      } catch(err) { alert('Falha de rede ao salvar capa.'); }
+      finally { editThumbSave.disabled = false; editThumbSave.textContent = 'Salvar'; }
+    });
 
     // ===========================
     // DELETE

@@ -62,10 +62,11 @@
     input:focus{ border-color:#b81d65; box-shadow:0 0 0 2px rgba(184,29,101,.25); }
     label{ font-size:14px; color:#e5e7eb; }
     /* ── Skeleton / lazy load ── */
-    .thumb-wrap{ position:relative; width:100%; height:100%; background:#1a1a2e; overflow:hidden; }
-    .thumb-wrap::before{ content:""; position:absolute; inset:0;
+    .thumb-wrap{ position:absolute; inset:0; background:#1a1a2e; overflow:hidden; }
+    .thumb-wrap::before{ content:""; position:absolute; inset:0; z-index:1;
       background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.06) 50%,transparent 100%);
-      animation:shimmer 1.4s infinite; }
+      animation:shimmer 1.4s infinite; pointer-events:none; }
+    .thumb-wrap.img-loaded::before{ display:none; }
     @keyframes shimmer{ 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
     .thumb-wrap img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
       opacity:0; transition:opacity .4s ease; will-change:opacity; }
@@ -435,17 +436,23 @@
 
     function activateLazyImages() {
       document.querySelectorAll('.card-img').forEach(img => {
-        if (img.complete && img.naturalWidth > 0) {
+        const wrap = img.closest('.thumb-wrap');
+        function onLoaded() {
           img.classList.add('loaded');
-        } else if (img.complete) {
+          if (wrap) wrap.classList.add('img-loaded');
+        }
+        function onError() {
           img.src = FALLBACK_IMG;
           img.classList.add('error', 'loaded');
+          if (wrap) wrap.classList.add('img-loaded');
+        }
+        if (img.complete && img.naturalWidth > 0) {
+          onLoaded();
+        } else if (img.complete && img.naturalWidth === 0) {
+          onError();
         } else {
-          img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
-          img.addEventListener('error', () => {
-            img.src = FALLBACK_IMG;
-            img.classList.add('error', 'loaded');
-          }, { once: true });
+          img.addEventListener('load', onLoaded, { once: true });
+          img.addEventListener('error', onError, { once: true });
         }
       });
     }

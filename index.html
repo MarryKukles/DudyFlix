@@ -561,8 +561,12 @@
             </svg>
           </button>
         </div>`;
-      el.querySelector('.relative').addEventListener('click', () => playVideo(video.url));
+      el.querySelector('.relative').addEventListener('click', (e) => {
+        if (e.target.closest('.delete-btn') || e.target.closest('.edit-thumb-btn')) return;
+        playVideo(video.url);
+      });
       el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(video._id || video.id, 'video'); });
+      el.querySelector('.edit-thumb-btn').addEventListener('click', (e) => { e.stopPropagation(); openEditThumb(video._id || video.id, 'video', video.title, el); });
       return el;
     }
 
@@ -599,7 +603,11 @@
             </svg>
           </button>
         </div>`;
-      el.querySelector('.relative').addEventListener('click', () => { const fresh = series.find(s => (s._id||s.id)===(serie._id||serie.id)) || serie; currentSeries = fresh; showEpisodesModal(fresh); });
+      el.querySelector('.relative').addEventListener('click', (e) => {
+        if (e.target.closest('.delete-btn') || e.target.closest('.edit-thumb-btn')) return;
+        const fresh = series.find(s => (s._id||s.id)===(serie._id||serie.id)) || serie;
+        currentSeries = fresh; showEpisodesModal(fresh);
+      });
       el.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteContent(serie._id || serie.id, 'series'); });
       el.querySelector('.edit-thumb-btn').addEventListener('click', (e) => { e.stopPropagation(); openEditThumb(serie._id || serie.id, 'series', serie.title, el); });
       return el;

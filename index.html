@@ -883,7 +883,6 @@
     // PLAYER
     // ===========================
     function playVideo(url) {
-      // suporta embeds (YouTube/Vimeo) e link direto (mp4/m3u8)
       const isYouTube = /youtube\.com\/embed|youtu\.be/.test(url);
       const isVimeo   = /player\.vimeo\.com\/video/.test(url);
 
@@ -897,24 +896,33 @@
         iframe.src = url;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
-        iframe.style.width = '100%'; iframe.style.height = '100%'; iframe.style.border = '0';
+        iframe.style.cssText = 'width:100%;height:100%;border:0;position:absolute;inset:0;';
         document.querySelector('.video-player-container').prepend(iframe);
         videoPlayerModal.style.display = 'flex';
         return;
       }
 
       _currentVideoUrl = url;
-      // Se o preloader já carregou este URL, aproveitar o buffer
-      if (_preloadedUrl === url && _preloader.readyState >= 2) {
+      cancelPreload();
+
+      // Abrir o modal imediatamente para o usuário ver resposta visual
+      videoPlayerModal.style.display = 'flex';
+
+      // Trocar src SOMENTE se for diferente do atual (evita reiniciar vídeo já carregado)
+      if (videoPlayer.src !== url && videoPlayer.src !== new URL(url, location.href).href) {
         videoPlayer.src = url;
-        videoPlayerModal.style.display = 'flex';
-        videoPlayer.currentTime = _preloader.currentTime || 0;
-        _preloader.src = ''; _preloadedUrl = null;
-      } else {
-        videoPlayer.src = url;
-        videoPlayerModal.style.display = 'flex';
+        videoPlayer.load(); // força início do download imediatamente
       }
-      videoPlayer.play().catch(e => console.error('Erro ao reproduzir vídeo:', e));
+
+      // play() — se ainda não tem dados suficientes, esperar canplay
+      const tryPlay = () => videoPlayer.play().catch(() => {});
+      if (videoPlayer.readyState >= 3) {
+        // Já tem dados: reproduzir na hora
+        tryPlay();
+      } else {
+        // Aguardar o mínimo de dados e reproduzir
+        videoPlayer.addEventListener('canplay', tryPlay, { once: true });
+      }
     }
     function togglePlayPause() {
       if (videoPlayer.paused) { videoPlayer.play(); playIcon.style.display='none'; pauseIcon.style.display='inline'; }
